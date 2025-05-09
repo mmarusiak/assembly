@@ -19,12 +19,9 @@ la $a0, prompt_1 # wypisanie prompt 1 - wybór działania
 
 syscall
 #wczytanie ciagu znakowego
-li $v0, 8 #wywołanie systemowe dla wczytania łańcucha
-la $a0, input #adres bufora (etykieta input)
-la $a1, 20 #maksymalna wielkość stringa 
+li $v0, 12  # syscall dla read_char
 syscall
-
-lb $t0, input   # pobierz pierwszy znak z wejścia
+move $t0, $v0 # wczytujemy input do $t0
 
 li $t1, 49      # '1' w ASCII to 49
 beq $t0, $t1, wczytaj_zmienne
@@ -122,7 +119,7 @@ syscall
 
 li $v0, 5        # syscall 5 = read_int
 syscall
-move $t2, $v0    # przenosimy wynik (int) z $v0 do $t3
+move $t2, $v0    # przenosimy wynik (int) z $v0 do $t2
 jr $ra
 
 przez_zero:
