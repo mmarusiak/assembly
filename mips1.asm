@@ -1,9 +1,8 @@
 .data
-input: .space 80 # rezerwujemy 80 bajtów na każdorazowe wejście
 prompt_1: .asciiz "\nWybierz dzialanie wpisując na klawiaturze 1-3: \n 1. (a + b)/c \n 2. a/(bc) \n 3. (2 * a - b)/c\n" # prompt wyboru działania
 prompt_zmiennych: .asciiz "\nWpisz wartosc zmiennej " # prompty wyboru zmiennych a, b i c
 
-komunikat_wyboru: .asciiz "Hej wybrales rownanie nr. "
+komunikat_wyboru: .asciiz "\nHej wybrales rownanie nr. "
 
 komunikat_dzielenia_przez_zero: .asciiz "\nWykryto dzielenie przez zero!"
 
