@@ -306,7 +306,7 @@ petla_blokow_szyfrujacych:
 petla_wewnatrz_bloku_szyfrujacego: 
 	bge $s7, $s3, nastepny_blok_szyfrujacy # jesli indeks jest wiekszy od dlugosci klucza, to wchodzimy na nastepny blok szyfrujacy
 	add $t1, $s6, $s7 # do t1 bierzemy indeks slowa z calego tekstu
-	bge $t1, $s4, nastepny_blok_szyfrujacy # warunek dla ostatniego bloku gdy niepelny - skaczemu do nastepnego bloku i konczymy szyfrowanie prawidlowo
+	bgt $t1, $s4, nastepny_blok_szyfrujacy # warunek dla ostatniego bloku gdy niepelny - skaczemu do nastepnego bloku i konczymy szyfrowanie prawidlowo
 	add $t2, $s2, $s7 # adres permutacji klucza dla tego indeksu w bloku
 	lb $t3, 0($t2) # ladujemy obecna permutacje klucza
 	beq $s5, $zero, sciezka_szyfrowania # jesli s5 = 0 to szyfr, inaczej deszyfr
@@ -314,7 +314,7 @@ sciezka_deszyfrowania:
 	add $t4, $s0, $t1 # adres szyfrogramu - przesuniecie na obecne slowo   
 	lb $t5, 0($t4) # ladujemy obecne slowo do t5
 	add $t6, $s6, $t3 # docelowy wzgledny indeks w tekscie jawnym
-	bge $t6, $s4, deszyfrowanie_zapis_permutowany_poza_zakresem # jesli wypadamy z docelowym indeksem poza tekst
+	bgt $t6, $s4, deszyfrowanie_zapis_permutowany_poza_zakresem # jesli wypadamy z docelowym indeksem poza tekst
 	add $t6, $s1, $t6 # adres wyniku - przesuwamy sie
 	sb $t5, 0($t6) # zapisujemy slowo z szyfrogramu, odczytane juz prawidlowo do t5
 	j inkrementuj_j_w_bloku_szyfrujacym 

@@ -368,7 +368,7 @@ sciezka_deszyfrowania:
 	add $t4, $s0, $t1 # adres szyfrogramu - przesuniecie na obecne slowo   
 	lb $t5, 0($t4) # ladujemy obecne slowo do t5
 	add $t6, $s6, $t3 # docelowy wzgledny indeks w tekscie jawnym
-	bge $t6, $s4, deszyfrowanie_zapis_permutowany_poza_zakresem # jesli wypadamy z docelowym indeksem poza tekst
+	bgt $t6, $s4, deszyfrowanie_zapis_permutowany_poza_zakresem # jesli wypadamy z docelowym indeksem poza tekst
 	add $t6, $s1, $t6 # adres wyniku - przesuwamy sie
 	sb $t5, 0($t6) # zapisujemy slowo z szyfrogramu, odczytane juz prawidlowo do t5
 	j inkrementuj_j_w_bloku_szyfrujacym 
@@ -379,7 +379,7 @@ deszyfrowanie_zapis_permutowany_poza_zakresem:
 	j inkrementuj_j_w_bloku_szyfrujacym 
 sciezka_szyfrowania:
 	add $t4, $s6, $t3 # wzgledny indeks odczytu w tekscie    
-	bge $t4, $s4, szyfrowanie_odczyt_znaku_poza_zakresem # jesli wypadamy poza tekst
+	bgt $t4, $s4, szyfrowanie_odczyt_znaku_poza_zakresem # jesli wypadamy poza tekst
 	add $t4, $s0, $t4 # faktyczny indeks
 	lb $t5, 0($t4) # ladujemy szyfr do t5   
 	j szyfrowanie_znak_zrodlowy_pobrany
