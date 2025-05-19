@@ -16,6 +16,9 @@
 	tekst_znormalizowany_buf: .space 51  
 	tekst_wynikowy_buf: .space 51  
 	znak_nowej_linii: .asciiz "\n" 
+	czy_kontynuowac: .asciiz "Czy kontynuowac? t/n:\n"
+	kontynuowac_zle: .asciiz "\nBledna operacja. Wybierz t/n:\n"
+	klucz_dluzszy_niz_tekst: .asciiz "\nKlucz dluzszy niz tekst... Nie da sie szyfrowac - wpisz tekst jeszcze raz\n"
 
 .text
 start_programu: 
@@ -280,10 +283,18 @@ konwertuj_klucz_petla:
 konwersja_klucza_koniec: 
 	j wykonaj_szyfrowanie_lub_deszyfrowanie # szyfrujemy/deszyfrujemy
 
+dlugosc_klucza_tekst:
+	li $v0, 4
+	la $a0, klucz_dluzszy_niz_tekst
+	syscall
+	j wczytaj_i_przetworz_tekst_uzytkownika
+
 wykonaj_szyfrowanie_lub_deszyfrowanie: 
 	la $s0, tekst_znormalizowany_buf # wczytujemy tekst
 	la $s1, tekst_wynikowy_buf # wczytujemy wynik
 	la $s2, permutacja_klucza # wczytujemy klucz z ktorym latwo nam bedzie pracowac - przekonwertowany na inty od 0 do dlugosci klucza - 1
+	
+	bgt $s3, $s4, dlugosc_klucza_tekst
 	# s3 - dlugosc klucza
 	# s4 - dlugosc tekstu
 	# s5 - tryb operacji 0 szyfr, 1 deszyfr
@@ -341,5 +352,22 @@ przetwarzanie_szyfrem_koniec:
 	syscall    
 	j koniec_programu # koniec programu
 koniec_programu: 
-	li $v0, 10 
+	li $v0, 4
+	la $a0, czy_kontynuowac
 	syscall
+	li $v0, 12
+	syscall
+	move $t0, $v0
+	li $t1, 't'
+	beq $t0, $t1, start_programu
+	li $t1, 'T'
+	beq $t0, $t1, start_programu
+	li $t1, 'n'
+	beq $t0, $t1, koniec
+	li $t1, 'N'
+	beq $t0, $t1, koniec
+	li $v0, 4
+	la $a0, kontynuowac_zle
+	syscall
+	j koniec_programu
+koniec:
