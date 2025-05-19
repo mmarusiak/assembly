@@ -4,15 +4,17 @@
 	prompt_dlugosc_klucza: .asciiz "\nPodaj dlugosc klucza (liczba calkowita z zakresu 3-8):\n"
 	ciag_klucz_buf: .space 9 
 	prompt_dlugosc_klucza_blad: .asciiz "\nNiepoprawna dlugosc klucza. Dlugosc musi byc miedzy 3 a 8.\n"
-	prompt_klucz_wartosc: .asciiz "\nPodaj klucz (cyfry od 1 do DlugoscKlucza, bez powtorzen, np. dla dlugosci 4: 2413):\n"
+	prompt_klucz_wartosc: .asciiz "\nPodaj klucz (cyfry od 1 do "
+	prompt_klucz_wartosc2: .asciiz ", np. dla dlugosci 4: 2413):\n"
 	prompt_klucz_dlugosc_niezgadza_sie: .asciiz "\nKlucz jest zbyt krotki lub zbyt dlugi! Wpisales inna liczbe cyfr niz zadeklarowana dlugosc klucza.\n"
-	prompt_klucz_wartosc_blad: .asciiz "\nKlucz jest niepoprawny! Upewnij sie, ze cyfry sa z wlasciwego zakresu (1-DlugoscKlucza) i sie nie powtarzaja.\n"
-	prompt_tekst_do_przetworzenia: .asciiz "\nPodaj tekst (po usunieciu spacji/interpunkcji musi skladac sie tylko z WIELKICH LITER A-Z, max 50 znakow):\n"
-	prompt_tekst_zawiera_niedozwolone_znaki: .asciiz "\nBLAD: Tekst zawiera male litery, cyfry lub inne niedozwolone znaki (po usunieciu spacji/interpunkcji).\nWprowadz tekst jeszcze raz.\n"
+	prompt_klucz_wartosc_blad: .asciiz "\nKlucz jest niepoprawny! Upewnij sie, ze cyfry sa z wlasciwego zakresu (1 - "
+	prompt_klucz_wartosc_blad2: .asciiz ") i sie nie powtarzaja.\n"
+	prompt_tekst_do_przetworzenia: .asciiz "\nPodaj tekst (cyfry 0-9 zostana zamienione na slowa, a male litery na wielkie):\n"
+	prompt_tekst_zawiera_niedozwolone_znaki: .asciiz "\nBLAD: Tekst zawiera male litery, cyfry lub inne niedozwolone znaki (po usunieciu spacji/interpunkcji i zamianie cyfr na slowa).\nWprowadz tekst jeszcze raz.\n"
 	permutacja_klucza: .space 8 # dla kazdego mozliwego chara z zakresu maksymalnego spisujemy ile razy wystapil w kluczu
 	tekst_wejsciowy_buf: .space 52 
-	tekst_tymczasowy_po_usunieciu_spacji_buf: .space 51 
-	komunikat_obciecie_tekstu: .asciiz "Uwaga: Tekst po normalizacji zostal obciety do 50 znakow.\n"
+
+	komunikat_obciecie_tekstu: .asciiz "Uwaga: Tekst po transformacji i normalizacji zostal obciety do 50 znakow.\n" # Zaktualizowany komunikat
 	tekst_znormalizowany_buf: .space 51  
 	tekst_wynikowy_buf: .space 51  
 	znak_nowej_linii: .asciiz "\n" 
@@ -20,8 +22,22 @@
 	kontynuowac_zle: .asciiz "\nBledna operacja. Wybierz t/n:\n"
 	klucz_dluzszy_niz_tekst: .asciiz "\nKlucz dluzszy niz tekst... Nie da sie szyfrowac - wpisz tekst jeszcze raz\n"
 
+	slowo_zero: .asciiz "ZERO"
+	slowo_jeden: .asciiz "JEDEN"
+	slowo_dwa: .asciiz "DWA"
+	slowo_trzy: .asciiz "TRZY"
+	slowo_cztery: .asciiz "CZTERY"
+	slowo_piec: .asciiz "PIEC"
+	slowo_szesc: .asciiz "SZESC"
+	slowo_siedem: .asciiz "SIEDEM"
+	slowo_osiem: .asciiz "OSIEM"
+	slowo_dziewiec: .asciiz "DZIEWIEC"
+	# Tablica wska?ników do s?ów dla cyfr
+	adresy_slow_cyfr: .word slowo_zero, slowo_jeden, slowo_dwa, slowo_trzy, slowo_cztery, slowo_piec, slowo_szesc, slowo_siedem, slowo_osiem, slowo_dziewiec
+
 .text
 start_programu: 
+	jal wyczysc_bufory
 	li $v0, 4
 	la $a0, prompt_operacja # wypisz prompt do uzytkownika zeby wybral operacje
 	syscall	
@@ -71,10 +87,16 @@ pobierz_wartosc_klucza:
 	li $v0, 4
 	la $a0, prompt_klucz_wartosc # wypisz zapytanie o wartosc klucza
 	syscall
+	li $v0, 1
+	move $a0, $s3
+	syscall
+	li $v0, 4
+	la $a0, prompt_klucz_wartosc2
+	syscall
 	la $a0, ciag_klucz_buf # wpisana wartosc bedzie do 52 bajtowego ciagu - to surowy ciag klucza
-	move $a1, $s3 # wrzucamy dlugosc klucza + 2 do a1, bo jeszcze \n jest wczytywane do ciagu
-	addi $a1, $a1, 2    
-	li $v0, 8 # wczytaj ciag     
+	move $a1, $s3 
+	addi $a1, $a1, 1    # wrzucamy dlugosc klucza + 1 do a1, bo jeszcze \n jest wczytywane do ciagu
+	li $v0, 8 # wczytaj ciag    
 	syscall	
 	la $a0, ciag_klucz_buf # rezultat mamy w a0
 	jal normalizuj_i_zmierz_dlugosc_klucza
@@ -87,8 +109,8 @@ klucz_ma_zla_dlugosc_po_wczytaniu:
 	syscall	
 	j pobierz_dlugosc_klucza 		
 normalizuj_i_zmierz_dlugosc_klucza: 
-	move $t1, $a0       
-	li $t2, 0           
+	move $t1, $a0    
+	li $t2, 0        
 normalizuj_klucz_petla:
 	lb $t3, 0($t1)      
 	beq $t3, $zero, normalizuj_klucz_koniec # jesli dotarlismy do konca
@@ -144,132 +166,180 @@ walidacja_cyfr_klucza_poprawna:
 	li $v0, 1 # ustawiamy wynik na 1 - informacja ze ok
 	jr $ra # wracamy
 walidacja_cyfr_klucza_niepoprawna:
-	li $v0, 0 # ustawiamy wynik na 0 - informacja ze zly klucz           
+	li $v0, 0 # ustawiamy wynik na 0 - informacja ze zly klucz        
 	jr $ra # wracamy
 klucz_ma_niepoprawna_zawartosc:
 	li $v0, 4
 	la $a0, prompt_klucz_wartosc_blad
 	syscall	
+	li $v0, 1
+	move $a0, $s3
+	syscall
+	li $v0, 4
+	la $a0, prompt_klucz_wartosc_blad2
+	syscall
 	j pobierz_dlugosc_klucza # jesli klucz byl zly - informujemy uzytkownika i ponawiamy probe inputu
 
 wczytaj_i_przetworz_tekst_uzytkownika: 
 	li $v0, 4
-	la $a0, prompt_tekst_do_przetworzenia # wczytaj tekst
+	la $a0, prompt_tekst_do_przetworzenia # wczytaj tekst (prompt zaktualizowany)
 	syscall	
 	la $a0, tekst_wejsciowy_buf # surowy tekst wejsciowy
+	jal wyczysc_bufor
 	li $v0, 8 
 	li $a1, 52 
 	syscall	
 	
-	la $t1, tekst_wejsciowy_buf # zapisujemy do t1
-	la $t2, tekst_tymczasowy_po_usunieciu_spacji_buf # do t2 robimy miejsce na tymczasowy tekst, krotszy bez spacji, bedziemy sprawdzac dlugosc 
-	li $t7, 0 # indeks petli
-etap1_usun_spacje_interpunkcje_petla:
-	lb $t3, 0($t1) # wczytaj kolejny bajt		
+	la $s0, tekst_wejsciowy_buf       # $s0 = wska?nik na ?ród?owy tekst_wejsciowy_buf
+	la $s1, tekst_znormalizowany_buf  # $s1 = wska?nik zapisu do tekst_znormalizowany_buf
+	li $s4, 0                         # $s4 = licznik znaków w tekscie_znormalizowanym (finalna d?ugo??)
+	li $t8, 0                         # $t8 = flaga b??du (0 = OK, 1 = b??d)
+	li $t9, 50                        # $t9 = maksymalna d?ugo?? tekstu znormalizowanego
+
+normalizuj_konwertuj_waliduj_petla:
+	lb $t2, 0($s0)                    # $t2 = bie??cy znak z tekst_wejsciowy_buf
 	
-	beq $t3, $zero, etap1_koniec # jesli jest rowny 0 - koniec stringu wejsciowego
-	beq $t3, '\n', etap1_koniec # jesli znalezlismy \n to koniec linii wejsciowej
+	beq $t2, $zero, normalizacja_konwertowanie_zakonczone_stringiem
+	beq $t2, '\n', normalizacja_konwertowanie_zakonczone_linia
 
-	li $t4, 'A'
-	blt $t3, $t4, sprawdz_czy_mala_litera_etap1 # jest mniejsze od 'A' oznacza mala litere potencjalnie
-	li $t4, 'Z'
-	bgt $t3, $t4, sprawdz_czy_mala_litera_etap1 # jest wieksze od 'Z' oznacza mala litere potencjalnie
-	j znak_do_zachowania_etap1 # inaczej to potencjalnie dobry znak
+	# Sprawdzenie, czy osi?gni?to limit d?ugo?ci dla tekstu znormalizowanego
+	# Ten check jest tutaj, aby najpierw sprawdzi? limit, zanim dodamy potencjalnie d?ugie s?owo za cyfr?.
+	bge $s4, $t9, normalizacja_limit_osiagniety_przewin_reszte_wejscia
 
-sprawdz_czy_mala_litera_etap1:
-	li $t4, 'a'
-	blt $t3, $t4, sprawdz_czy_cyfra_etap1 # jesli jest mniejsze od 'a' to mozliwe ze to cyfra
-	li $t4, 'z'
-	bgt $t3, $t4, sprawdz_czy_cyfra_etap1 # jesli jest wieksze od 'z' to mozliwe ze to cyfra
-	j znak_do_zachowania_etap1 # to w takim razie nie jest znak interpunkcyjny, nie pomijamy
-
-sprawdz_czy_cyfra_etap1:
+	# Sprawdzenie czy cyfra '0'-'9'
 	li $t4, '0'
-	blt $t3, $t4, pomin_znak_etap1 # jesli nie cyfra to pomijamy znak - traktujemy jako interpunkcja
+	blt $t2, $t4, normalizacja_sprawdz_litere
 	li $t4, '9'
-	bgt $t3, $t4, pomin_znak_etap1 # to samo ^
+	bgt $t2, $t4, normalizacja_sprawdz_litere
+	# Jest cyfra '0'-'9' -> zamie? na s?owo
+	subi $t3, $t2, '0' # $t3 = warto?? cyfry (0-9)
+	sll $t3, $t3, 2    # $t3 = offset w tablicy adresow_slow_cyfr (wartosc_cyfry * 4)
+	la $t4, adresy_slow_cyfr
+	add $t4, $t4, $t3  # $t4 = adres wska?nika do s?owa dla cyfry w tablicy
+	lw $t5, 0($t4)     # $t5 = adres stringu ze s?owem (np. adres "ZERO")
+	# P?tla kopiuj?ca s?owo cyfry do tekst_znormalizowany_buf
+normalizacja_kopiuj_slowo_cyfry_petla:
+	lb $t6, 0($t5)     # $t6 = znak ze s?owa cyfry (np. 'Z', 'E', 'R', 'O')
+	beqz $t6, normalizacja_koniec_kopiowania_slowa_cyfry # Je?li koniec s?owa (null terminator)
 	
-znak_do_zachowania_etap1:
-	bge $t7, 50, etap1_limit_osiagniety # jesli indeks = 50, oznacza to ze dotarlismy na koniec - etap1 konczymy
-	sb $t3, 0($t2) # zapisujemy ten znak w t2       
-	addi $t2, $t2, 1 # idziemy dalej w t2
-	addi $t7, $t7, 1 # indesk o 1 zwiekszamy
+	bge $s4, $t9, normalizacja_limit_osiagniety_przewin_reszte_wejscia # Sprawd? limit PRZED ka?dym zapisem znaku s?owa
+	
+	sb $t6, 0($s1)     # Zapisz znak s?owa do tekst_znormalizowany_buf
+	addi $s1, $s1, 1   # Przesu? wska?nik zapisu w tekst_znormalizowany_buf
+	addi $s4, $s4, 1   # Inkrementuj licznik d?ugo?ci tekstu znormalizowanego
+	addi $t5, $t5, 1   # Nast?pny znak s?owa cyfry
+	j normalizacja_kopiuj_slowo_cyfry_petla
+normalizacja_koniec_kopiowania_slowa_cyfry:
+	j normalizacja_nastepny_znak_wejsciowy # Po skopiowaniu s?owa, przejd? do nast?pnego znaku z wej?cia
 
-pomin_znak_etap1:
-	addi $t1, $t1, 1 # przesuwamy t1 dalej  
-	j etap1_usun_spacje_interpunkcje_petla # usuwamy spacje i interpunkcje dalej - indeksu nie zwiekszamy, nie dodajemy nic na wyjscie, po prostu pomijamy i wracamy do petlu
-
-etap1_limit_osiagniety: 
-etap1_przewin_do_konca_wejscia:
-	lb $t3, 0($t1) # ladujemy pozostale bajty dopoki nie dotrzemy do \n lub 0
-	beqz $t3, etap1_koniec
-	beq $t3, '\n', etap1_koniec
-	addi $t1, $t1, 1 # idziemy dalej powtarzamy
-	j etap1_przewin_do_konca_wejscia
-
-etap1_koniec: 
-	sb $zero, 0($t2) # konczymy rowniez nasz klucz wyjsciowy wpisujac 0 na koniec - informacja o koncu
-
-etap2_walidacja_znakow:
-	la $t1, tekst_tymczasowy_po_usunieciu_spacji_buf # wczytujemy prawie znormalizowany tekst do t1
-	li $t8, 0 # wynik walidacji - 1 gdy wykryto maly znak lub cyfre, 0 gdy ok
-	li $s4, 0 # indeks			
-	la $t2, tekst_znormalizowany_buf # koncowa normalizacja tekstu - kolejne bajty/slowa koncowego tekstu	
-etap2_waliduj_petla:
-	lb $t3, 0($t1) # wczytujemy pierwsze slowo do sprawdzenia	
-	beq $t3, $zero, etap2_walidacja_zakonczona # jesli to slowo to 0 - nasze oznaczenie na koniec - to zakonczylismy walidacje
-
+normalizacja_sprawdz_litere:
+	# Sprawdzenie czy wielka litera A-Z
 	li $t4, 'A'
-	blt $t3, $t4, etap2_wykryto_niepoprawny_znak_lub_mala_lit_cyfre # mniej od "A' oznacza cyfre lub liczbe - reszte wywalilismy
+	blt $t2, $t4, normalizacja_sprawdz_mala_litere
 	li $t4, 'Z'
-	bgt $t3, $t4, etap2_wykryto_niepoprawny_znak_lub_mala_lit_cyfre # wiecej od 'Z' oznacza cyfre lub liczbe - reszte wywalilismy
-	
-	sb $t3, 0($t2) # umieszczamy ten bajt u nas w nowym, znormalizowanym koncowo tekscie		
-	addi $t2, $t2, 1 # przesuwamy sie
-	addi $s4, $s4, 1 # indeks + 1	
-	
-	addi $t1, $t1, 1 # przesuwamy sie rowniez po tekscie pierwotnym, znormalizowanym nie do konca		
-	j etap2_waliduj_petla # petla dalej
+	bgt $t2, $t4, normalizacja_sprawdz_mala_litere
+	# Jest wielk? liter? A-Z -> skopiuj
+wpisz_litere:
+	sb $t2, 0($s1) # Zapisz wielk? liter?
+	addi $s1, $s1, 1
+	addi $s4, $s4, 1
+	j normalizacja_nastepny_znak_wejsciowy
 
-etap2_wykryto_niepoprawny_znak_lub_mala_lit_cyfre:
-	li $t8, 1 # w tekscie maja byc tylko duze litery - zly tekst!		
-	j etap2_walidacja_zakonczona # koniec walidacji	
+normalizacja_sprawdz_mala_litere:
+	# Sprawdzenie czy ma?a litera a-z
+	li $t4, 'a'
+	blt $t2, $t4, normalizacja_nastepny_znak_wejsciowy # pomin znak - znak specjalny usuwamy
+	li $t4, 'z'
+	bgt $t2, $t4, normalizacja_nastepny_znak_wejsciowy
+	# Jest ma?? liter? -> zamieniay na duza
+	li $t4, 32
+	sub $t2, $t2, $t4 # zamiana na duza
+	# wpisujemy duza litere
+	j wpisz_litere
 
-etap2_walidacja_zakonczona:
-	sb $zero, 0($t2) # konczymy nasz nowy klucz rowniez zerem, maksymalnie znormalizowany
+normalizacja_sprawdz_interpunkcje_do_usuniecia:
+	# stara funkcja, gdy usuwalismy tylko znaki interpunkcyjne!
+	# Sprawdzenie czy spacja lub typowa interpunkcja -> Pomi? (usu?)
+	li $t4, ' '
+	beq $t2, $t4, normalizacja_nastepny_znak_wejsciowy 
+	li $t4, '.'
+	beq $t2, $t4, normalizacja_nastepny_znak_wejsciowy 
+	li $t4, ','
+	beq $t2, $t4, normalizacja_nastepny_znak_wejsciowy 
+	li $t4, '!'
+	beq $t2, $t4, normalizacja_nastepny_znak_wejsciowy 
+	li $t4, '?'
+	beq $t2, $t4, normalizacja_nastepny_znak_wejsciowy 
+	# Inny, niedozwolony znak (nie jest cyfr?, wielk? liter?, ma?? liter? ani znan? interpunkcj?/spacj?)
+	li $t8, 1          # Ustaw flag? b??du
+	# Kontynuuj p?tl?, aby wczyta? reszt? linii, b??d zostanie sprawdzony na ko?cu
+	# j normalizacja_nastepny_znak_wejsciowy # Przejd? dalej w p?tli
 
-	bne $t8, $zero, tekst_zawiera_bledy_normalizacji # jesli status != 0 oznacza to ze ma cyfre lub male litery
+normalizacja_nastepny_znak_wejsciowy:
+	addi $s0, $s0, 1                  # Nast?pny znak z tekst_wejsciowy_buf
+	j normalizuj_konwertuj_waliduj_petla
+
+normalizacja_limit_osiagniety_przewin_reszte_wejscia:
+	# Osi?gni?to limit 50 znaków w tekscie_znormalizowanym.
+	# Zapisz flag?, ?e dosz?o do potencjalnego obci?cia, je?li jeszcze nie ustawiona.
+	li $s6, 1 # U?ywamy $s6 jako flagi obci?cia (wcze?niej u?ywany w p?tli szyfruj?cej, ale tu jest bezpieczny)
+przewin_wejscie_petla: # Przewijamy reszt? bufora wej?ciowego
+	lb $t2, 0($s0)
+	beqz $t2, normalizacja_konwertowanie_zakonczone_stringiem_po_obcieciu
+	beq $t2, '\n', normalizacja_konwertowanie_zakonczone_linia_po_obcieciu
+	# Sprawdzamy, czy obcinane znaki by?yby b??dne (np. ma?e litery)
+	li $t4, 'a'
+	blt $t2, $t4, dalej_przewijaj_bez_bledu_obcinania # nie jest ma?? liter?
+	li $t4, 'z'
+	bgt $t2, $t4, dalej_przewijaj_bez_bledu_obcinania # nie jest ma?? liter?
+	li $t8, 1 # Je?li obcinamy ma?? liter?, to te? jest b??d
+dalej_przewijaj_bez_bledu_obcinania:
+	addi $s0, $s0, 1
+	j przewin_wejscie_petla
+normalizacja_konwertowanie_zakonczone_stringiem_po_obcieciu:
+    j normalizacja_konwertowanie_zakonczone_stringiem # Przejd? do standardowego zako?czenia
+normalizacja_konwertowanie_zakonczone_linia_po_obcieciu:
+    j normalizacja_konwertowanie_zakonczone_linia # Przejd? do standardowego zako?czenia
+
+normalizacja_konwertowanie_zakonczone_linia:
+	sb $zero, 0($s1) # Zako?cz tekst_znormalizowany_buf znakiem '\0' ($s1 to aktualny wska?nik zapisu)
+	j normalizacja_konwertowanie_sprawdz_bledy_i_obciecie
+
+normalizacja_konwertowanie_zakonczone_stringiem: 
+	sb $zero, 0($s1) # Zako?cz tekst_znormalizowany_buf znakiem '\0'
+
+normalizacja_konwertowanie_sprawdz_bledy_i_obciecie:
+	# $s4 zawiera d?ugo?? tekstu_znormalizowanego_buf
+	# $t8 zawiera flag? b??du (0 = OK, 1 = wykryto niedozwolony znak)
+	# $s6 zawiera flag? potencjalnego obci?cia (1 = tak, 0 = nie)
+	bne $t8, $zero, tekst_zawiera_bledy_przetwarzania_koncowego
 	
-	li $t3, 50 # 50 to dlugosc maksymalna klucza
-	bne $s4, $t3, przygotuj_klucz_do_szyfrowania # jesli nie jest tyle rowny indeks - spokojnie mozemy kontynuowac program, nie zapchamy bufora
-	la $t7, tekst_tymczasowy_po_usunieciu_spacji_buf # Sprawdzamy oryginalny, przefiltrowany tekst
-	add $t7, $t7, 50 # Czy 51-szy znak w tymczasowym (po usunieciu spacji) istnial?
-	lb $t6, 0($t7) # Jesli tak, i bylby wielka litera, to znaczy ze obcieto >50 wielkich liter
-	beqz $t6, przygotuj_klucz_do_szyfrowania 
-    
-	# Sprawdzamy czy ten 51szy znak bylby wielka litera (bo tylko takie nas interesuja)
-	li $t4, 'A'
-	blt $t6, $t4, przygotuj_klucz_do_szyfrowania 
-	li $t4, 'Z'
-	bgt $t6, $t4, przygotuj_klucz_do_szyfrowania 
-    # Jesli tak, to faktycznie obcieto wiecej niz 50 wielkich liter
+	# Sprawdzenie komunikatu o obci?ciu
+	beqz $s6, przygotuj_klucz_do_szyfrowania_po_normalizacji # Je?li $s6=0, nie by?o obci?cia z powodu limitu 50
+	# Je?li $s6=1, to znaczy, ?e $s4 osi?gn??o 50 i by?y jeszcze znaki na wej?ciu.
 	li $v0, 4
 	la $a0, komunikat_obciecie_tekstu 
 	syscall
-	# Przejdz dalej normalnie
-	j przygotuj_klucz_do_szyfrowania
+	# Przejd? dalej
+	j przygotuj_klucz_do_szyfrowania_po_normalizacji
 
-tekst_zawiera_bledy_normalizacji:
+tekst_zawiera_bledy_przetwarzania_koncowego:
 	li $v0, 4
-	la $a0, prompt_tekst_zawiera_niedozwolone_znaki # info o bledach
+	la $a0, prompt_tekst_zawiera_niedozwolone_znaki
 	syscall
-	j wczytaj_i_przetworz_tekst_uzytkownika # proba jeszcze raz
+	j wczytaj_i_przetworz_tekst_uzytkownika 
 
-przygotuj_klucz_do_szyfrowania: 
+przygotuj_klucz_do_szyfrowania_po_normalizacji: 
+	# $s4 zawiera teraz poprawn? d?ugo?? tekstu_znormalizowanego_buf
+	# Sprawdzenie czy klucz nie jest d?u?szy od tekstu
+	blt $s4, $s3, dlugosc_klucza_przekracza_tekst # Je?li dl_tekstu < dl_klucza, b??d
+                                                # U?y?em blt, bo je?li s? równe, to jest OK.
+
+	# Konwersja klucza na 0-indeksowane liczby ca?kowite
 	la $t1, ciag_klucz_buf # t1 to nasza wartosc klucz    
 	la $t2, permutacja_klucza # t2 to tablica wystepowan - juz niepotrzebna, wykorzystamy ja w innym celu
 	li $t3, 0 # t3 to indeks
-	li $t4, '1' # pomoc ascii        
+	li $t4, '1' # pomoc ascii                       
 konwertuj_klucz_petla:
 	bge $t3, $s3, konwersja_klucza_koniec # jesli dotarlismy do dlugosci - koniec 
 	lb $t5, 0($t1) # ladujemy kolejny bajt klucza
@@ -280,10 +350,10 @@ konwertuj_klucz_petla:
 	addi $t2, $t2, 1 # } - przesuniecia dalej w kluczach           
 	addi $t3, $t3, 1 # indeks + 1
 	j konwertuj_klucz_petla # petla
-konwersja_klucza_koniec: 
+konwersja_klucza_koniec:
 	j wykonaj_szyfrowanie_lub_deszyfrowanie # szyfrujemy/deszyfrujemy
 
-dlugosc_klucza_tekst:
+dlugosc_klucza_przekracza_tekst:
 	li $v0, 4
 	la $a0, klucz_dluzszy_niz_tekst
 	syscall
@@ -294,7 +364,7 @@ wykonaj_szyfrowanie_lub_deszyfrowanie:
 	la $s1, tekst_wynikowy_buf # wczytujemy wynik
 	la $s2, permutacja_klucza # wczytujemy klucz z ktorym latwo nam bedzie pracowac - przekonwertowany na inty od 0 do dlugosci klucza - 1
 	
-	bgt $s3, $s4, dlugosc_klucza_tekst
+	bgt $s3, $s4, dlugosc_klucza_przekracza_tekst
 	# s3 - dlugosc klucza
 	# s4 - dlugosc tekstu
 	# s5 - tryb operacji 0 szyfr, 1 deszyfr
@@ -306,7 +376,7 @@ petla_blokow_szyfrujacych:
 petla_wewnatrz_bloku_szyfrujacego: 
 	bge $s7, $s3, nastepny_blok_szyfrujacy # jesli indeks jest wiekszy od dlugosci klucza, to wchodzimy na nastepny blok szyfrujacy
 	add $t1, $s6, $s7 # do t1 bierzemy indeks slowa z calego tekstu
-	bgt $t1, $s4, nastepny_blok_szyfrujacy # warunek dla ostatniego bloku gdy niepelny - skaczemu do nastepnego bloku i konczymy szyfrowanie prawidlowo
+	bge $t1, $s4, nastepny_blok_szyfrujacy # warunek dla ostatniego bloku gdy niepelny - skaczemu do nastepnego bloku i konczymy szyfrowanie prawidlowo
 	add $t2, $s2, $s7 # adres permutacji klucza dla tego indeksu w bloku
 	lb $t3, 0($t2) # ladujemy obecna permutacje klucza
 	beq $s5, $zero, sciezka_szyfrowania # jesli s5 = 0 to szyfr, inaczej deszyfr
@@ -314,7 +384,7 @@ sciezka_deszyfrowania:
 	add $t4, $s0, $t1 # adres szyfrogramu - przesuniecie na obecne slowo   
 	lb $t5, 0($t4) # ladujemy obecne slowo do t5
 	add $t6, $s6, $t3 # docelowy wzgledny indeks w tekscie jawnym
-	bgt $t6, $s4, deszyfrowanie_zapis_permutowany_poza_zakresem # jesli wypadamy z docelowym indeksem poza tekst
+	bge $t6, $s4, deszyfrowanie_zapis_permutowany_poza_zakresem # jesli wypadamy z docelowym indeksem poza tekst
 	add $t6, $s1, $t6 # adres wyniku - przesuwamy sie
 	sb $t5, 0($t6) # zapisujemy slowo z szyfrogramu, odczytane juz prawidlowo do t5
 	j inkrementuj_j_w_bloku_szyfrujacym 
@@ -332,7 +402,7 @@ sciezka_szyfrowania:
 szyfrowanie_odczyt_znaku_poza_zakresem:
 	# sciezka ratunkowa - odczytujemy znak jak "jest", tzn. nie zmieniamy nic
 	add $t4, $s0, $t1           
-	lb $t5, 0($t4)             
+	lb $t5, 0($t4)              
 szyfrowanie_znak_zrodlowy_pobrany:
 	# zapisujemy t5 w swoje miejsce w wyniju
 	add $t6, $s1, $t1 # t1 to indeks w tekscie calym aktualny
@@ -351,7 +421,8 @@ przetwarzanie_szyfrem_koniec:
 	la $a0, znak_nowej_linii
 	syscall    
 	j koniec_programu # koniec programu
-koniec_programu: 
+
+koniec_programu:
 	li $v0, 4
 	la $a0, czy_kontynuowac
 	syscall
@@ -368,4 +439,43 @@ koniec_programu:
 	beq $t0, $t1, koniec
 	li $v0, 4
 	la $a0, kontynuowac_zle
+	syscall
+	j koniec_programu # Wró? do pytania o kontynuacj?, je?li z?y input
+	
+wyczysc_bufory:
+	#tekst_znormalizowany_buf: .space 51  
+	#tekst_wynikowy_buf: .space 51 
+	#permutacja_klucza: .space 8 # dla kazdego mozliwego chara z zakresu maksymalnego spisujemy ile razy wystapil w kluczu
+	#tekst_wejsciowy_buf: .space 52 
+	#ciag_klucz_buf: .space 9 
+	move $t2, $ra
+	la $a0, tekst_znormalizowany_buf
+	jal wyczysc_bufor
+	la $a0 tekst_wynikowy_buf
+	jal wyczysc_bufor
+	la $a0, permutacja_klucza
+	jal wyczysc_bufor
+	la $a0, tekst_wejsciowy_buf
+	jal wyczysc_bufor
+	la $a0, ciag_klucz_buf
+	jal wyczysc_bufor
+	move $ra, $t2
+	jr $ra
+
+wyczysc_bufor:
+	# $a0 bufor do wyczyszczenia
+	lb $t1, 0($a0)
+	bne $t1, $zero, wyczysc_bufor1
+	jr $ra
+wyczysc_bufor1:
+	bne $t1, '\n', wyczysc_bufor2
+	jr $ra
+wyczysc_bufor2:
+	sb $zero, 0($a0)
+	addi $a0, $a0, 1
+	j wyczysc_bufor
+
+koniec:
+	# syscall 10 - koniec programu
+	li $v0, 10
 	syscall
