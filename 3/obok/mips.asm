@@ -33,8 +33,6 @@
 	# s5 - pamiecZaalokowanaNaStosie (ile bajtow zaalokowano na stosie)
 	
 	glownyProgram:
-		# Rozpoczynamy program od zapetlenia glownej logiki
-		petlaGlownaProgram:
 		
 		pobierzLiczbeInstrukcji:
 			# Wyswietlamy zapytanie o liczbe instrukcji
@@ -197,21 +195,9 @@
 		# Kopiujemy liczbe elementow na stosie do rejestru roboczego
 		move $t0, $s5
 		
-		# Obliczamy rozmiar pamieci w bajtach i wyswietlamy
-		mul $t1, $t0, 4
-		li $v0, 4
-		la $a0, komunikatAlokacjiPamieci
-		syscall
-		li $v0, 1
-		move $a0, $t1
-		syscall
-		li $v0, 4
-		la $a0, nowaLinia
-		syscall
-		
 		wyswietlStos:
 			# Sprawdzamy czy zostaly elementy do wyswietlenia
-			beqz $t0, zapytajOKontynuacje
+			beqz $t0, wyswietlPamiec
 		
 			# Pobieramy element ze stosu i wyswietlamy
 			lw $a0, ($sp)
@@ -227,6 +213,22 @@
 			addi $sp, $sp, 4
 			addi $t0, $t0, -1
 			j wyswietlStos
+		
+		wyswietlPamiec:
+			# Kopiujemy liczbe elementow na stosie do rejestru roboczego
+			move $t0, $s5
+		
+			# Obliczamy rozmiar pamieci w bajtach i wyswietlamy
+			mul $t1, $t0, 4
+			li $v0, 4
+			la $a0, komunikatAlokacjiPamieci
+			syscall
+			li $v0, 1
+			move $a0, $t1
+			syscall
+			li $v0, 4
+			la $a0, nowaLinia
+			syscall
 	
 		zapytajOKontynuacje:
 		# Wyswietlamy zapytanie o kontynuacje programu
@@ -399,6 +401,98 @@
 			# Zwracamy 1 (true)
 			li $v0, 1
 			jr $ra
+			
+	# Funkcja dzielaca string na oddzielne slowa
+	# Parametr: a0 - adres stringa do podzialu
+	# Zwraca: v0 - liczba slow, v1 - tablica wskaznikow do slow
+	podzielString:
+		# Zapisujemy adres powrotu na stos
+		addi $sp, $sp, -4
+		sw $ra, 0($sp)
+		
+		# Inicjalizujemy rejestry robocze
+		move $t0, $a0  # aktualny adres znaku w stringu
+		li $t1, 0      # flaga czy poprzedni znak byl czescia slowa
+		li $t2, 0      # liczba znalezionych slow
+		li $t3, 32     # kod ASCII spacji (udajemy ze poprzedni znak byl spacja)
+		
+		move $t7, $a0  # zachowujemy oryginalny adres stringa
+		
+		liczSlow:
+			# Pobieramy kolejny znak
+			lb $t3, ($t0)
+			# Jesli koniec stringa, przechodzimy do tworzenia tablicy
+			beqz $t3, tablicaZeStosu
+			
+			# Sprawdzamy czy znak to separator (spacja, nowa linia, przecinek)
+			seq $t4, $t3, 32   # spacja
+			seq $t5, $t3, 10   # nowa linia
+			or $t4, $t4, $t5
+			seq $t5, $t3, 44   # przecinek
+			or $t4, $t4, $t5
+			
+			# Jesli to separator
+			seq $t5, $t4, 0     # t5 = 1 jesli znak NIE jest separatorem
+			and $t1, $t5, $t1   # jesli separator, resetujemy flage slowa
+			mul $t3, $t3, $t5   # jesli separator, zamieniamy znak na 0
+			sb $t3, ($t0)       # zapisujemy zmieniony znak
+			add $t0, $t0, $t4   # przesuwamy wskaznik o 1 jesli separator
+			beq $t4, 1, liczSlow  # jesli separator, kontynuujemy petle
+			
+			# Znak nie jest separatorem
+			seq $t5, $t1, 0       # sprawdzamy czy poprzedni znak byl separatorem
+		
+			beqz $t5, pominUmieszczeniaNaStosie
+			# Jesli zaczynamy nowe slowo, zwiekszamy licznik slow
+			add $t2, $t2, 1
+			# Umieszczamy adres poczatku slowa na stosie
+			addi $sp, $sp, -4
+			sw $t0, ($sp)
+			
+			pominUmieszczeniaNaStosie:
+			# Przesuwamy wskaznik i ustawiamy flage ze jestesmy w srodku slowa
+			addi $t0, $t0, 1
+			li $t1, 1
+			j liczSlow
+		
+		tablicaZeStosu:
+			# Alokujemy pamiec na tablice wskaznikow (liczba_slow * 4 bajty)
+			li $v0, 9
+			mul $a0, $t2, 4
+			syscall
+				
+			# Przygotowujemy wyniki
+			move $t0, $v0     # adres poczatku tablicy
+			move $v0, $t2     # liczba slow do zwrocenia
+			move $v1, $t0     # adres tablicy do zwrocenia
+			
+			# Obliczamy adres konca tablicy
+			mul $t1, $t2, 4
+			add $t1, $t1, $t0
+			addi $t1, $t1, -4
+			
+			petlaPrzenoszeniaZeStosu:
+				# Sprawdzamy czy zostaly elementy do przeniesienia
+				beqz $t2, powrot
+				
+				# Pobieramy adres slowa ze stosu
+				lw $t4, ($sp)
+				# Umieszczamy w tablicy
+				sw $t4, ($t1)
+				# Przesuwamy wskazniki
+				addi $t1, $t1, -4
+				addi $sp, $sp, 4
+				
+				# Dekrementujemy licznik
+				addi $t2, $t2, -1
+				j petlaPrzenoszeniaZeStosu
+		
+		powrot:
+			# Przywracamy adres powrotu i wracamy
+			lw $ra, 0($sp)
+        	addi $sp, $sp, 4
+        	jr $ra
+
 		
 	# Funkcja sprawdzajaca czy string reprezentuje wartosc natychmiastowa (liczbe)
 	# Parametr: a0 - adres stringa
@@ -550,94 +644,3 @@
 			addi $sp, $sp, 4
 			li $v0, 0
 			jr $t0
-		
-	# Funkcja dzielaca string na oddzielne slowa
-	# Parametr: a0 - adres stringa do podzialu
-	# Zwraca: v0 - liczba slow, v1 - tablica wskaznikow do slow
-	podzielString:
-		# Zapisujemy adres powrotu na stos
-		addi $sp, $sp, -4
-		sw $ra, 0($sp)
-		
-		# Inicjalizujemy rejestry robocze
-		move $t0, $a0  # aktualny adres znaku w stringu
-		li $t1, 0      # flaga czy poprzedni znak byl czescia slowa
-		li $t2, 0      # liczba znalezionych slow
-		li $t3, 32     # kod ASCII spacji (udajemy ze poprzedni znak byl spacja)
-		
-		move $t7, $a0  # zachowujemy oryginalny adres stringa
-		
-		liczSlow:
-			# Pobieramy kolejny znak
-			lb $t3, ($t0)
-			# Jesli koniec stringa, przechodzimy do tworzenia tablicy
-			beqz $t3, tablicaZeStosu
-			
-			# Sprawdzamy czy znak to separator (spacja, nowa linia, przecinek)
-			seq $t4, $t3, 32   # spacja
-			seq $t5, $t3, 10   # nowa linia
-			or $t4, $t4, $t5
-			seq $t5, $t3, 44   # przecinek
-			or $t4, $t4, $t5
-			
-			# Jesli to separator
-			seq $t5, $t4, 0     # t5 = 1 jesli znak NIE jest separatorem
-			and $t1, $t5, $t1   # jesli separator, resetujemy flage slowa
-			mul $t3, $t3, $t5   # jesli separator, zamieniamy znak na 0
-			sb $t3, ($t0)       # zapisujemy zmieniony znak
-			add $t0, $t0, $t4   # przesuwamy wskaznik o 1 jesli separator
-			beq $t4, 1, liczSlow  # jesli separator, kontynuujemy petle
-			
-			# Znak nie jest separatorem
-			seq $t5, $t1, 0       # sprawdzamy czy poprzedni znak byl separatorem
-		
-			beqz $t5, pominUmieszczeniaNaStosie
-			# Jesli zaczynamy nowe slowo, zwiekszamy licznik slow
-			add $t2, $t2, 1
-			# Umieszczamy adres poczatku slowa na stosie
-			addi $sp, $sp, -4
-			sw $t0, ($sp)
-			
-			pominUmieszczeniaNaStosie:
-			# Przesuwamy wskaznik i ustawiamy flage ze jestesmy w srodku slowa
-			addi $t0, $t0, 1
-			li $t1, 1
-			j liczSlow
-		
-		tablicaZeStosu:
-			# Alokujemy pamiec na tablice wskaznikow (liczba_slow * 4 bajty)
-			li $v0, 9
-			mul $a0, $t2, 4
-			syscall
-				
-			# Przygotowujemy wyniki
-			move $t0, $v0     # adres poczatku tablicy
-			move $v0, $t2     # liczba slow do zwrocenia
-			move $v1, $t0     # adres tablicy do zwrocenia
-			
-			# Obliczamy adres konca tablicy
-			mul $t1, $t2, 4
-			add $t1, $t1, $t0
-			addi $t1, $t1, -4
-			
-			petlaPrzenoszeniaZeStosu:
-				# Sprawdzamy czy zostaly elementy do przeniesienia
-				beqz $t2, powrot
-				
-				# Pobieramy adres slowa ze stosu
-				lw $t4, ($sp)
-				# Umieszczamy w tablicy
-				sw $t4, ($t1)
-				# Przesuwamy wskazniki
-				addi $t1, $t1, -4
-				addi $sp, $sp, 4
-				
-				# Dekrementujemy licznik
-				addi $t2, $t2, -1
-				j petlaPrzenoszeniaZeStosu
-		
-		powrot:
-			# Przywracamy adres powrotu i wracamy
-			lw $ra, 0($sp)
-        	addi $sp, $sp, 4
-        	jr $ra
