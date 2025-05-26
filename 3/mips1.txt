@@ -38,7 +38,7 @@
 		li $s2, 0
 		li $s3, 0
 		li $s4, 0
-		li $s5, 0					# Wyzerowanie licznika pamięci na stosie
+		li $s5, 0
 		
 	pobierz_liczbe_instrukcji:
 		# Wyświetlenie zapytania o liczbę instrukcji
@@ -51,16 +51,16 @@
 		syscall
 		
 		# Sprawdzenie czy liczba mieści się w przedziale [1, 5]
-		blez $v0, bledna_liczba_instrukcji		# Jeśli <= 0, to błąd
+		blez $v0, bledna_liczba_instrukcji	# Jeśli <= 0, to błąd
 		bgt $v0, 5, bledna_liczba_instrukcji	# Jeśli > 5, to błąd
-		j zakoncz_pobieranie_liczby				# Liczba poprawna, kontynuuj
+		j zakoncz_pobieranie_liczby		# Liczba poprawna, kontynuuj
 		
 	bledna_liczba_instrukcji:
 		# Wyświetlenie komunikatu o błędzie
 		li $v0, 4
 		la $a0, blad_liczby_instrukcji
 		syscall
-		j pobierz_liczbe_instrukcji			# Ponowne zapytanie o liczbę
+		j pobierz_liczbe_instrukcji		# Ponowne zapytanie o liczbę
 		
 	zakoncz_pobieranie_liczby:
 		# Zapisanie liczby instrukcji do rejestru $s0
@@ -87,8 +87,8 @@
 		# Podział wprowadzonego tekstu na słowa
 		move $a0, $t0
 		jal podziel_tekst_na_slowa
-		move $s2, $v0					# Liczba słów
-		move $s3, $v1					# Tablica wskaźników do słów
+		move $s2, $v0				# Liczba słów
+		move $s3, $v1				# Tablica wskaźników do słów
 		
 		j przetwarzaj_instrukcje
 
@@ -153,9 +153,9 @@
 		
 	umieść_instrukcje_na_stosie:
 		# Obliczenie indeksu ostatniego elementu tablicy
-		addi $t0, $s2, -1					# $t0 = liczba_słów - 1
-		mul $t0, $t0, 4						# Przemnożenie przez 4 (rozmiar wskaźnika)
-		add $t0, $t0, $s3					# Dodanie adresu tablicy
+		addi $t0, $s2, -1				# $t0 = liczba_słów - 1
+		mul $t0, $t0, 4					# Przemnożenie przez 4 (rozmiar wskaźnika)
+		add $t0, $t0, $s3				# Dodanie adresu tablicy
 		
 		# Aktualizacja licznika pamięci na stosie
 		add $s5, $s5, $s2
@@ -168,13 +168,13 @@
 			blez $t2, umieść_linie_oddzielajaca
 			
 			# Pobranie adresu słowa i umieszczenie na stosie
-			lw $t1, ($t0)					# Pobranie adresu słowa
-			addi $sp, $sp, -4				# Zmniejszenie wskaźnika stosu
-			sw $t1, ($sp)					# Umieszczenie adresu na stosie
+			lw $t1, ($t0)				# Pobranie adresu słowa
+			addi $sp, $sp, -4			# Zmniejszenie wskaźnika stosu
+			sw $t1, ($sp)				# Umieszczenie adresu na stosie
 			
 			# Przejście do poprzedniego słowa
-			addi $t2, $t2, -1				# Zmniejszenie licznika
-			addi $t0, $t0, -4				# Przejście do poprzedniego wskaźnika
+			addi $t2, $t2, -1			# Zmniejszenie licznika
+			addi $t0, $t0, -4			# Przejście do poprzedniego wskaźnika
 			j petla_umieszczania_instrukcji
 			
 		umieść_linie_oddzielajaca:
@@ -198,10 +198,10 @@
 		
 	zakoncz_program:
 		# Przygotowanie do wyświetlenia zawartości stosu
-		move $t0, $s5						# Liczba elementów do wyświetlenia
+		move $t0, $s5					# Liczba elementów do wyświetlenia
 		
 		# Obliczenie i wyświetlenie ilości zaalokowanej pamięci
-		mul $t1, $t0, 4						# Pamięć w bajtach
+		mul $t1, $t0, 4					# Pamięć w bajtach
 		li $v0, 4
 		la $a0, komunikat_pamieci
 		syscall
@@ -422,12 +422,12 @@
 		sprawdz_znak_minus:
 			# Sprawdzenie czy pierwszy znak to minus
 			bne $t0, 45, sprawdz_znak_plus
-			addi $a0, $a0, 1					# Pomiń znak minus
+			addi $a0, $a0, 1			# Pomiń znak minus
 		
 		sprawdz_znak_plus:
 			# Sprawdzenie czy pierwszy znak to plus
 			bne $t0, 43, sprawdz_czy_cyfra
-			addi $a0, $a0, 1					# Pomiń znak plus
+			addi $a0, $a0, 1			# Pomiń znak plus
 		
 		sprawdz_czy_cyfra:
 			# Pobranie aktualnego znaku
@@ -521,10 +521,10 @@
 		sw $ra, ($sp)
 		
 		# Pobranie pierwszych czterech znaków
-		lb $t0, 0($a0)						# Pierwszy znak (powinien być '$')
-		lb $t1, 1($a0)						# Drugi znak (pierwsza cyfra)
-		lb $t2, 2($a0)						# Trzeci znak (druga cyfra lub null)
-		lb $t3, 3($a0)						# Czwarty znak (powinien być null)
+		lb $t0, 0($a0)					# Pierwszy znak (powinien być '$')
+		lb $t1, 1($a0)					# Drugi znak (pierwsza cyfra)
+		lb $t2, 2($a0)					# Trzeci znak (druga cyfra lub null)
+		lb $t3, 3($a0)					# Czwarty znak (powinien być null)
 		
 		# Sprawdzenie czy pierwszy znak to '$'
 		bne $t0, 36, zwroc_nie_jest_rejestrem
@@ -544,7 +544,7 @@
 			bgt $t2, 57, zwroc_nie_jest_rejestrem	# Jeśli > '9'
 			
 			# Jeśli pierwsza cyfra to '3', druga może być tylko '0' lub '1'
-			bne $t1, 51, zwroc_jest_rejestrem		# Pierwsza cyfra < 3, rejestr poprawny
+			bne $t1, 51, zwroc_jest_rejestrem	# Pierwsza cyfra < 3, rejestr poprawny
 			bgt $t2, 49, zwroc_nie_jest_rejestrem	# Liczba > 31
 			j zwroc_jest_rejestrem
 		
@@ -579,9 +579,9 @@
 		
 		# Inicjalizacja zmiennych
 		move $t0, $a0						# Adres aktualnego znaku
-		li $t1, 0							# Flaga: czy ostatni znak był częścią słowa
-		li $t2, 0							# Liczba słów
-		li $t3, 32							# Symulacja białego znaku na początku
+		li $t1, 0						# Flaga: czy ostatni znak był częścią słowa
+		li $t2, 0						# Liczba słów
+		li $t3, 32						# Symulacja białego znaku na początku
 		move $t7, $a0						# Oryginalny adres tekstu
 		
 		policz_slowa:
@@ -604,7 +604,7 @@
 			mul $t3, $t3, $t5				# Wyzeruj znak jeśli to biały znak
 			sb $t3, ($t0)					# Zapisz zmodyfikowany znak
 			add $t0, $t0, $t4				# Zwiększ adres o 1 jeśli biały znak
-			beq $t4, 1, policz_slowa		# Jeśli biały znak, kontynuuj pętlę
+			beq $t4, 1, policz_slowa			# Jeśli biały znak, kontynuuj pętlę
 			
 			# Znak nie jest białym znakiem
 			seq $t5, $t1, 0					# $t5 = 1 jeśli ostatni znak był białym znakiem

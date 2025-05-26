@@ -52,8 +52,8 @@
 		
 		# Sprawdzenie czy liczba mieści się w przedziale [1, 5]
 		blez $v0, bledna_liczba_instrukcji		# Jeśli <= 0, to błąd
-		bgt $v0, 5, bledna_liczba_instrukcji	# Jeśli > 5, to błąd
-		j zakoncz_pobieranie_liczby				# Liczba poprawna, kontynuuj
+		bgt $v0, 5, bledna_liczba_instrukcji		# Jeśli > 5, to błąd
+		j zakoncz_pobieranie_liczby			# Liczba poprawna, kontynuuj
 		
 	bledna_liczba_instrukcji:
 		# Wyświetlenie komunikatu o błędzie
@@ -159,9 +159,9 @@
 		
 	umieść_instrukcje_na_stosie:
 		# Obliczenie indeksu ostatniego elementu tablicy
-		addi $t0, $s2, -1					# $t0 = liczba_słów - 1
-		mul $t0, $t0, 4						# Przemnożenie przez 4 (rozmiar wskaźnika)
-		add $t0, $t0, $s3					# Dodanie adresu tablicy
+		addi $t0, $s2, -1				# $t0 = liczba_słów - 1
+		mul $t0, $t0, 4					# Przemnożenie przez 4 (rozmiar wskaźnika)
+		add $t0, $t0, $s3				# Dodanie adresu tablicy
 		
 		# Aktualizacja licznika pamięci na stosie
 		add $s5, $s5, $s2
@@ -174,13 +174,13 @@
 			blez $t2, umieść_linie_oddzielajaca
 			
 			# Pobranie adresu słowa i umieszczenie na stosie
-			lw $t1, ($t0)					# Pobranie adresu słowa
-			addi $sp, $sp, -4				# Zmniejszenie wskaźnika stosu
-			sw $t1, ($sp)					# Umieszczenie adresu na stosie
+			lw $t1, ($t0)				# Pobranie adresu słowa
+			addi $sp, $sp, -4			# Zmniejszenie wskaźnika stosu
+			sw $t1, ($sp)				# Umieszczenie adresu na stosie
 			
 			# Przejście do poprzedniego słowa
-			addi $t2, $t2, -1				# Zmniejszenie licznika
-			addi $t0, $t0, -4				# Przejście do poprzedniego wskaźnika
+			addi $t2, $t2, -1			# Zmniejszenie licznika
+			addi $t0, $t0, -4			# Przejście do poprzedniego wskaźnika
 			j petla_umieszczania_instrukcji
 			
 		umieść_linie_oddzielajaca:
@@ -204,10 +204,10 @@
 		
 	zakoncz_program:
 		# Przygotowanie do wyświetlenia zawartości stosu
-		move $t0, $s5						# Liczba elementów do wyświetlenia
+		move $t0, $s5					# Liczba elementów do wyświetlenia
 		
 		# Obliczenie i wyświetlenie ilości zaalokowanej pamięci
-		mul $t1, $t0, 4						# Pamięć w bajtach
+		mul $t1, $t0, 4					# Pamięć w bajtach
 		li $v0, 4
 		la $a0, komunikat_pamieci
 		syscall
@@ -428,12 +428,12 @@
 		sprawdz_znak_minus:
 			# Sprawdzenie czy pierwszy znak to minus
 			bne $t0, 45, sprawdz_znak_plus
-			addi $a0, $a0, 1					# Pomiń znak minus
+			addi $a0, $a0, 1			# Pomiń znak minus
 		
 		sprawdz_znak_plus:
 			# Sprawdzenie czy pierwszy znak to plus
 			bne $t0, 43, sprawdz_czy_cyfra
-			addi $a0, $a0, 1					# Pomiń znak plus
+			addi $a0, $a0, 1			# Pomiń znak plus
 		
 		sprawdz_czy_cyfra:
 			# Pobranie aktualnego znaku
@@ -481,12 +481,12 @@
 			beqz $t0, zwroc_jest_etykieta
 			
 			# Sprawdzenie czy znak jest wielką literą (A-Z, ASCII 65-90)
-			sge $t1, $t0, 65					# $t1 = 1 jeśli >= 'A'
-			sle $t2, $t0, 90					# $t2 = 1 jeśli <= 'Z'
+			sge $t1, $t0, 65			# $t1 = 1 jeśli >= 'A'
+			sle $t2, $t0, 90			# $t2 = 1 jeśli <= 'Z'
 			
 			# Sprawdzenie czy znak jest małą literą (a-z, ASCII 97-122)
-			sge $t3, $t0, 97					# $t3 = 1 jeśli >= 'a'
-			sle $t4, $t0, 122					# $t4 = 1 jeśli <= 'z'
+			sge $t3, $t0, 97			# $t3 = 1 jeśli >= 'a'
+			sle $t4, $t0, 122			# $t4 = 1 jeśli <= 'z'
 			
 			# Sprawdzenie czy znak należy do przedziału A-Z
 			and $t1, $t1, $t2
@@ -527,10 +527,10 @@
 		sw $ra, ($sp)
 		
 		# Pobranie pierwszych czterech znaków
-		lb $t0, 0($a0)						# Pierwszy znak (powinien być '$')
-		lb $t1, 1($a0)						# Drugi znak (pierwsza cyfra)
-		lb $t2, 2($a0)						# Trzeci znak (druga cyfra lub null)
-		lb $t3, 3($a0)						# Czwarty znak (powinien być null)
+		lb $t0, 0($a0)					# Pierwszy znak (powinien być '$')
+		lb $t1, 1($a0)					# Drugi znak (pierwsza cyfra)
+		lb $t2, 2($a0)					# Trzeci znak (druga cyfra lub null)
+		lb $t3, 3($a0)					# Czwarty znak (powinien być null)
 		
 		# Sprawdzenie czy pierwszy znak to '$'
 		bne $t0, 36, zwroc_nie_jest_rejestrem
@@ -550,7 +550,7 @@
 			bgt $t2, 57, zwroc_nie_jest_rejestrem	# Jeśli > '9'
 			
 			# Jeśli pierwsza cyfra to '3', druga może być tylko '0' lub '1'
-			bne $t1, 51, zwroc_jest_rejestrem		# Pierwsza cyfra < 3, rejestr poprawny
+			bne $t1, 51, zwroc_jest_rejestrem	# Pierwsza cyfra < 3, rejestr poprawny
 			bgt $t2, 49, zwroc_nie_jest_rejestrem	# Liczba > 31
 			j zwroc_jest_rejestrem
 		
@@ -584,11 +584,11 @@
 		sw $ra, 0($sp)
 		
 		# Inicjalizacja zmiennych
-		move $t0, $a0						# Adres aktualnego znaku
-		li $t1, 0							# Flaga: czy ostatni znak był częścią słowa
-		li $t2, 0							# Liczba słów
-		li $t3, 32							# Symulacja białego znaku na początku
-		move $t7, $a0						# Oryginalny adres tekstu
+		move $t0, $a0					# Adres aktualnego znaku
+		li $t1, 0					# Flaga: czy ostatni znak był częścią słowa
+		li $t2, 0					# Liczba słów
+		li $t3, 32					# Symulacja białego znaku na początku
+		move $t7, $a0					# Oryginalny adres tekstu
 		
 		policz_slowa:
 			# Pobranie aktualnego znaku
@@ -598,62 +598,62 @@
 			beqz $t3, stos_do_tablicy
 			
 			# Sprawdzenie czy znak to biały znak (spacja, nowa linia, przecinek)
-			seq $t4, $t3, 32				# $t4 = 1 jeśli spacja
-			seq $t5, $t3, 10				# $t5 = 1 jeśli nowa linia
+			seq $t4, $t3, 32			# $t4 = 1 jeśli spacja
+			seq $t5, $t3, 10			# $t5 = 1 jeśli nowa linia
 			or $t4, $t4, $t5
-			seq $t5, $t3, 44				# $t5 = 1 jeśli przecinek
+			seq $t5, $t3, 44			# $t5 = 1 jeśli przecinek
 			or $t4, $t4, $t5
 			
 			# Jeśli to biały znak
-			seq $t5, $t4, 0					# $t5 = 1 jeśli to nie biały znak
-			and $t1, $t5, $t1				# Ustaw flagę słowa na 0
-			mul $t3, $t3, $t5				# Wyzeruj znak jeśli to biały znak
-			sb $t3, ($t0)					# Zapisz zmodyfikowany znak
-			add $t0, $t0, $t4				# Zwiększ adres o 1 jeśli biały znak
+			seq $t5, $t4, 0				# $t5 = 1 jeśli to nie biały znak
+			and $t1, $t5, $t1			# Ustaw flagę słowa na 0
+			mul $t3, $t3, $t5			# Wyzeruj znak jeśli to biały znak
+			sb $t3, ($t0)				# Zapisz zmodyfikowany znak
+			add $t0, $t0, $t4			# Zwiększ adres o 1 jeśli biały znak
 			beq $t4, 1, policz_slowa		# Jeśli biały znak, kontynuuj pętlę
 			
 			# Znak nie jest białym znakiem
-			seq $t5, $t1, 0					# $t5 = 1 jeśli ostatni znak był białym znakiem
+			seq $t5, $t1, 0				# $t5 = 1 jeśli ostatni znak był białym znakiem
 		
 			# Jeśli zaczynamy nowe słowo
 			beqz $t5, pomin_stos
-			add $t2, $t2, 1					# Zwiększ licznik słów
-			addi $sp, $sp, -4				# Umieść wskaźnik na stos
+			add $t2, $t2, 1				# Zwiększ licznik słów
+			addi $sp, $sp, -4			# Umieść wskaźnik na stos
 			sw $t0, ($sp)
 			
 			pomin_stos:
-			addi $t0, $t0, 1				# Przejdź do następnego znaku
-			li $t1, 1						# Ustaw flagę słowa
+			addi $t0, $t0, 1			# Przejdź do następnego znaku
+			li $t1, 1				# Ustaw flagę słowa
 			j policz_slowa
 		
 		stos_do_tablicy:
 			# Alokacja pamięci na tablicę wskaźników
 			li $v0, 9
-			mul $a0, $t2, 4					# Rozmiar tablicy = liczba_słów * 4
+			mul $a0, $t2, 4				# Rozmiar tablicy = liczba_słów * 4
 			syscall
 				
 			# Przygotowanie zmiennych dla kopiowania ze stosu
-			move $t0, $v0					# Adres początku tablicy
-			move $v0, $t2					# Liczba słów (wynik funkcji)
-			move $v1, $t0					# Adres tablicy (wynik funkcji)
+			move $t0, $v0				# Adres początku tablicy
+			move $v0, $t2				# Liczba słów (wynik funkcji)
+			move $v1, $t0				# Adres tablicy (wynik funkcji)
 			
 			# Obliczenie adresu końca tablicy
 			mul $t1, $t2, 4
 			add $t1, $t1, $t0
-			addi $t1, $t1, -4				# Wskaźnik na ostatni element tablicy
+			addi $t1, $t1, -4			# Wskaźnik na ostatni element tablicy
 			
 			petla_stos_do_tablicy:
 				# Sprawdzenie czy wszystkie słowa zostały skopiowane
 				beqz $t2, powrot_z_funkcji
 				
 				# Kopiowanie wskaźnika ze stosu do tablicy
-				lw $t4, ($sp)				# Pobranie wskaźnika ze stosu
-				sw $t4, ($t1)				# Umieszczenie w tablicy
+				lw $t4, ($sp)			# Pobranie wskaźnika ze stosu
+				sw $t4, ($t1)			# Umieszczenie w tablicy
 				
 				# Przejście do poprzedniego elementu
-				addi $t1, $t1, -4			# Poprzedni element tablicy
-				addi $sp, $sp, 4			# Usunięcie elementu ze stosu
-				addi $t2, $t2, -1			# Zmniejszenie licznika
+				addi $t1, $t1, -4		# Poprzedni element tablicy
+				addi $sp, $sp, 4		# Usunięcie elementu ze stosu
+				addi $t2, $t2, -1		# Zmniejszenie licznika
 				j petla_stos_do_tablicy
 		
 		powrot_z_funkcji:
