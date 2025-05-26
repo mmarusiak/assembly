@@ -3,7 +3,7 @@
 	nowa_linia: .asciiz "\n"
 	zapytanie_o_liczbe_instrukcji: .asciiz "\nPodaj liczbe instrukcji (1-5): \n"
 	blad_liczby_instrukcji: .asciiz "\nLiczba instrukcji nie zgadza sie. Wprowadz jeszcze raz! \n"
-	zapytanie_o_instrukcje: .asciiz "\nPodaj instrukcje: (Mozliwe instrukcje to: ADD, ADDI, J, NOOP, MULT, JR, JAL, SUB) \n"
+	zapytanie_o_instrukcje: .asciiz "\nPodaj instrukcje: (Mozliwe instrukcje to: ADD, ADDI, J, NOOP, MULT, JR, JAL) \n"
 	blad_instrukcji: .asciiz "\nNieprawidlowo wprowadzona instrukcja - sprobuj ponownie. \n"
 	komunikat_pamieci: .asciiz "\nIlosc pamieci zaalokowanej na stosie: \n"
 	linia_oddzielajaca: .asciiz "--------------------------------------------"
@@ -17,7 +17,7 @@
 	instrukcja_mult: .asciiz "MULT"
 	instrukcja_jr: .asciiz "JR"
 	instrukcja_jal: .asciiz "JAL"
-	instrukcja_sub: .asciiz "SUB"
+	
 	
 	# Bufor na wprowadzane dane
 	bufor_wejsciowy: .space 51
@@ -140,12 +140,6 @@
 		la $a1, instrukcja_jal
 		jal porownaj_teksty
 		beq $v0, 1, obsluz_jal
-		
-		# dla nowej instrukcji - SUB
-		move $a0, $s4
-		la $a1, instrukcja_sub
-		jal porownaj_teksty
-		beq $v0, 1, obsluz_add # tyle samo argumentow co dla add 
 		
 		# Jeśli żadna z instrukcji nie pasuje
 		j nieprawidlowa_instrukcja
