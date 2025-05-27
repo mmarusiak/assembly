@@ -6,7 +6,7 @@
 	zapytanieOInstrukcje: .asciiz "\nPodaj instrukcje: \n"
 	komunikatBlednejInstrukcji: .asciiz "\nNieprawidlowa instrukcja \n"
 	komunikatAlokacjiPamieci: .asciiz "\nPamiec zaalokowana na stosie: \n"
-	separatorLinii: .asciiz "[NOWA INSTRUKCJA NA STOSIE]"
+	separatorLinii: .asciiz "--------------------------------------------"
 	
 	tekstKoniec: .asciiz "AppFinished"
 	zapytanieKontynuacji: .asciiz "Czy kontynuowac? T/N: "
