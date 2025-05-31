@@ -6,7 +6,7 @@
 	zapytanie_o_instrukcje: .asciiz "\nPodaj instrukcje: (Mozliwe instrukcje to: ADD, ADDI, J, NOOP, MULT, JR, JAL, SUB) \n"
 	blad_instrukcji: .asciiz "\nNieprawidlowo wprowadzona instrukcja - sprobuj ponownie. \n"
 	komunikat_pamieci: .asciiz "\nIlosc pamieci zaalokowanej na stosie: \n"
-	linia_oddzielajaca: .asciiz "--------------------------------------------"
+	linia_oddzielajaca: .asciiz "--------------------------------------------\n"
 	zapytanie_kontynuacji: .asciiz "Czy kontynuowac? T/N: "
 	
 	# Dostępne instrukcje MIPS
@@ -96,8 +96,9 @@
 		# Sprawdzenie czy instrukcja ma przynajmniej jedno słowo
 		blez $s2, nieprawidlowa_instrukcja
 		
-		# Pobranie pierwszego słowa (nazwy instrukcji)
+		# Pobranie pierwszego słowa (nazwy instrukcji) - pomijamy flagę
 		lw $s4, ($s3)
+		addi $s4, $s4, 1				# Pomiń flagę na początku słowa
 		
 		# Sprawdzenie czy instrukcja to ADD
 		move $a0, $s4
@@ -213,8 +214,21 @@
 			# Sprawdzenie czy stos jest pusty
 			beqz $t0, zapytaj_o_kontynuacje
 		
-			# Wyświetlenie elementu ze stosu
-			lw $a0, ($sp)
+			# Pobranie adresu słowa ze stosu
+			lw $t1, ($sp)
+			
+			# Sprawdzenie flagi (pierwszy bajt)
+			lb $t2, ($t1)
+			
+			# Jeśli flaga = 1 (nowa instrukcja), wyświetl separator
+			bne $t2, 1, wyswietl_slowo
+			li $v0, 4
+			la $a0, linia_oddzielajaca
+			syscall
+			
+			wyswietl_slowo:
+			# Wyświetlenie słowa (pomijając flagę)
+			addi $a0, $t1, 1			# Pomiń flagę
 			li $v0, 4
 			syscall
 			
@@ -267,18 +281,21 @@
 		# Instrukcja ADD wymaga dokładnie 4 słów: ADD rd, rs, rt
 		bne $s2, 4, nieprawidlowa_instrukcja
 		
-		# Sprawdzenie czy drugi argument to rejestr
+		# Sprawdzenie czy drugi argument to rejestr (pomijamy flagę)
 		lw $a0, 4($s3)
+		addi $a0, $a0, 1
 		jal czy_rejestr
 		beqz $v0, nieprawidlowa_instrukcja
 		
 		# Sprawdzenie czy trzeci argument to rejestr
 		lw $a0, 8($s3)
+		addi $a0, $a0, 1
 		jal czy_rejestr
 		beqz $v0, nieprawidlowa_instrukcja
 		
 		# Sprawdzenie czy czwarty argument to rejestr
 		lw $a0, 12($s3)
+		addi $a0, $a0, 1
 		jal czy_rejestr
 		beqz $v0, nieprawidlowa_instrukcja
 		
@@ -291,16 +308,19 @@
 		
 		# Sprawdzenie czy drugi argument to rejestr
 		lw $a0, 4($s3)
+		addi $a0, $a0, 1
 		jal czy_rejestr
 		beqz $v0, nieprawidlowa_instrukcja
 		
 		# Sprawdzenie czy trzeci argument to rejestr
 		lw $a0, 8($s3)
+		addi $a0, $a0, 1
 		jal czy_rejestr
 		beqz $v0, nieprawidlowa_instrukcja
 		
 		# Sprawdzenie czy czwarty argument to wartość natychmiastowa
 		lw $a0, 12($s3)
+		addi $a0, $a0, 1
 		jal czy_wartosc_natychmiastowa
 		beqz $v0, nieprawidlowa_instrukcja
 		
@@ -313,6 +333,7 @@
 		
 		# Sprawdzenie czy drugi argument to etykieta
 		lw $a0, 4($s3)
+		addi $a0, $a0, 1
 		jal czy_etykieta
 		beqz $v0, nieprawidlowa_instrukcja
 		
@@ -332,11 +353,13 @@
 		
 		# Sprawdzenie czy drugi argument to rejestr
 		lw $a0, 4($s3)
+		addi $a0, $a0, 1
 		jal czy_rejestr
 		beqz $v0, nieprawidlowa_instrukcja
 		
 		# Sprawdzenie czy trzeci argument to rejestr
 		lw $a0, 8($s3)
+		addi $a0, $a0, 1
 		jal czy_rejestr
 		beqz $v0, nieprawidlowa_instrukcja
 		
@@ -349,6 +372,7 @@
 		
 		# Sprawdzenie czy drugi argument to rejestr
 		lw $a0, 4($s3)
+		addi $a0, $a0, 1
 		jal czy_rejestr
 		beqz $v0, nieprawidlowa_instrukcja
 		
@@ -361,6 +385,7 @@
 		
 		# Sprawdzenie czy drugi argument to etykieta
 		lw $a0, 4($s3)
+		addi $a0, $a0, 1
 		jal czy_etykieta
 		beqz $v0, nieprawidlowa_instrukcja
 		
@@ -566,89 +591,134 @@
 			jr $t0
 		
 	podziel_tekst_na_slowa:
-		# Funkcja dzieląca pojedynczy tekst na tablicę słów zakończonych null
-		# Argument: $a0 - adres tekstu zakończonego znakiem null
-		# Zwraca: $v0 - liczba słów, $v1 - tablica wskaźników do słów
-		
-		# Zapisanie adresu powrotu na stos
-		addi $sp, $sp, -4
-		sw $ra, 0($sp)
-		
-		# Inicjalizacja zmiennych
-		move $t0, $a0					# Adres aktualnego znaku
-		li $t1, 0					# Flaga: czy ostatni znak był częścią słowa
-		li $t2, 0					# Liczba słów
-		li $t3, 32					# Symulacja białego znaku na początku
-		move $t7, $a0					# Oryginalny adres tekstu
-		
-		policz_slowa:
-			# Pobranie aktualnego znaku
-			lb $t3, ($t0)
-			
-			# Sprawdzenie czy dotarliśmy do końca tekstu
-			beqz $t3, stos_do_tablicy
-			
-			# Sprawdzenie czy znak to biały znak (spacja, nowa linia, przecinek)
-			seq $t4, $t3, 32			# $t4 = 1 jeśli spacja
-			seq $t5, $t3, 10			# $t5 = 1 jeśli nowa linia
-			or $t4, $t4, $t5
-			seq $t5, $t3, 44			# $t5 = 1 jeśli przecinek
-			or $t4, $t4, $t5
-			
-			# Jeśli to biały znak
-			seq $t5, $t4, 0				# $t5 = 1 jeśli to nie biały znak
-			and $t1, $t5, $t1			# Ustaw flagę słowa na 0
-			mul $t3, $t3, $t5			# Wyzeruj znak jeśli to biały znak
-			sb $t3, ($t0)				# Zapisz zmodyfikowany znak
-			add $t0, $t0, $t4			# Zwiększ adres o 1 jeśli biały znak
-			beq $t4, 1, policz_slowa		# Jeśli biały znak, kontynuuj pętlę
-			
-			# Znak nie jest białym znakiem
-			seq $t5, $t1, 0				# $t5 = 1 jeśli ostatni znak był białym znakiem
-		
-			# Jeśli zaczynamy nowe słowo
-			beqz $t5, pomin_stos
-			add $t2, $t2, 1				# Zwiększ licznik słów
-			addi $sp, $sp, -4			# umiesc wskaźnik na stos
-			sw $t0, ($sp)
-			
-			pomin_stos:
-			addi $t0, $t0, 1			# Przejdź do następnego znaku
-			li $t1, 1				# Ustaw flagę słowa
-			j policz_slowa
-		
-		stos_do_tablicy:
-			# Alokacja pamięci na tablicę wskaźników
-			li $v0, 9
-			mul $a0, $t2, 4				# Rozmiar tablicy = liczba_słów * 4
-			syscall
-				
-			# Przygotowanie zmiennych dla kopiowania ze stosu
-			move $t0, $v0				# Adres początku tablicy
-			move $v0, $t2				# Liczba słów (wynik funkcji)
-			move $v1, $t0				# Adres tablicy (wynik funkcji)
-			
-			# Obliczenie adresu końca tablicy
-			mul $t1, $t2, 4
-			add $t1, $t1, $t0
-			addi $t1, $t1, -4			# Wskaźnik na ostatni element tablicy
-			
-			petla_stos_do_tablicy:
-				# Sprawdzenie czy wszystkie słowa zostały skopiowane
-				beqz $t2, powrot_z_funkcji
-				
-				# Kopiowanie wskaźnika ze stosu do tablicy
-				lw $t4, ($sp)			# Pobranie wskaźnika ze stosu
-				sw $t4, ($t1)			# Umieszczenie w tablicy
-				
-				# Przejście do poprzedniego elementu
-				addi $t1, $t1, -4		# Poprzedni element tablicy
-				addi $sp, $sp, 4		# Usunięcie elementu ze stosu
-				addi $t2, $t2, -1		# Zmniejszenie licznika
-				j petla_stos_do_tablicy
-		
-		powrot_z_funkcji:
-			# Przywrócenie adresu powrotu i powrót
-			lw $ra, 0($sp)
-        	addi $sp, $sp, 4
-        	jr $ra
+    # Funkcja dzieląca pojedynczy tekst na tablicę słów zakończonych null
+    # KAŻDE SŁOWO POPRZEDZONE JEST FLAGĄ (1 bajt):
+    # - 1 = instrukcja (pierwsze słowo)
+    # - 0 = argument (pozostałe słowa)
+    # Argument: $a0 - adres tekstu zakończonego znakiem null
+    # Zwraca: $v0 - liczba słów, $v1 - tablica wskaźników do słów (z flagami)
+    
+    # Zapisanie adresu powrotu na stos
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    # Inicjalizacja zmiennych
+    move $t0, $a0           # Adres aktualnego znaku
+    li $t1, 0               # Flaga: czy ostatni znak był częścią słowa
+    li $t2, 0               # Liczba słów
+    li $t3, 32              # Symulacja białego znaku na początku
+    move $t7, $a0           # Oryginalny adres tekstu
+    
+policz_slowa:
+    # Pobranie aktualnego znaku
+    lb $t3, ($t0)
+    
+    # Sprawdzenie czy dotarliśmy do końca tekstu
+    beqz $t3, stos_do_tablicy
+    
+    # Sprawdzenie czy znak to biały znak (spacja, nowa linia, przecinek)
+    seq $t4, $t3, 32        # $t4 = 1 jeśli spacja
+    seq $t5, $t3, 10        # $t5 = 1 jeśli nowa linia
+    seq $t6, $t3, 44        # $t6 = 1 jeśli przecinek
+    
+    # Sprawdzenie czy to biały znak (spacja OR nowa linia OR przecinek)
+    or $t4, $t4, $t5
+    or $t4, $t4, $t6
+    
+    # Sprawdzenie przejścia ze słowa na biały znak
+    beqz $t4, nie_bialy_znak
+    
+    # To jest biały znak
+    beqz $t1, przejdz_dalej  # Jeśli poprzedni też był biały, przejdź dalej
+    # Koniec słowa - zakończ go zerem
+    sb $zero, ($t0)
+    addi $t2, $t2, 1        # Zwiększ licznik słów
+    li $t1, 0               # Ustaw flagę - teraz nie jesteśmy w słowie
+    j przejdz_dalej
+    
+nie_bialy_znak:
+    # To nie jest biały znak
+    bnez $t1, przejdz_dalej  # Jeśli już jesteśmy w słowie, przejdź dalej
+    # Początek nowego słowa
+    li $t1, 1               # Ustaw flagę - jesteśmy w słowie
+    
+przejdz_dalej:
+    addi $t0, $t0, 1        # Przejdź do następnego znaku
+    j policz_slowa
+    
+stos_do_tablicy:
+    # Sprawdź czy ostatni znak był częścią słowa
+    beqz $t1, alokuj_tablice
+    addi $t2, $t2, 1        # Zwiększ licznik słów o ostatnie słowo
+    
+alokuj_tablice:
+    # Alokacja pamięci dla tablicy wskaźników
+    # Każdy wpis to: 1 bajt flagi + 4 bajty adresu = 5 bajtów na słowo
+    li $t0, 5
+    mult $t2, $t0
+    mflo $t0                # $t0 = liczba słów * 5
+    
+    # Wywołanie syscall malloc (zakładając dostępność)
+    move $a0, $t0
+    li $v0, 9               # syscall sbrk
+    syscall
+    move $t8, $v0           # $t8 = adres tablicy
+    
+    # Ponowne przejście przez tekst i wypełnienie tablicy
+    move $t0, $t7           # Resetuj wskaźnik na początek tekstu
+    li $t1, 0               # Flaga: czy jesteśmy w słowie
+    li $t3, 0               # Indeks w tablicy
+    li $t4, 1               # Flaga dla pierwszego słowa (instrukcja)
+    
+wypelnij_tablice:
+    lb $t5, ($t0)           # Pobierz aktualny znak
+    beqz $t5, koniec_wypelniania
+    
+    # Sprawdź czy to biały znak
+    seq $t6, $t5, 32        # spacja
+    seq $t7, $t5, 10        # nowa linia  
+    seq $t9, $t5, 44        # przecinek
+    or $t6, $t6, $t7
+    or $t6, $t6, $t9
+    
+    bnez $t6, bialy_znak_tablicy
+    
+    # Nie biały znak
+    bnez $t1, nastepny_znak  # Już jesteśmy w słowie
+    
+    # Początek nowego słowa
+    li $t1, 1               # Jesteśmy w słowie
+    
+    # Zapisz flagę do tablicy
+    mult $t3, $t0
+    li $t0, 5
+    mult $t3, $t0
+    mflo $t6
+    add $t6, $t8, $t6       # Adres w tablicy
+    sb $t4, ($t6)           # Zapisz flagę
+    
+    # Zapisz adres słowa
+    addi $t6, $t6, 1
+    sw $t0, ($t6)           # Zapisz adres początku słowa
+    
+    li $t4, 0               # Następne słowa będą argumentami
+    addi $t3, $t3, 1        # Zwiększ indeks tablicy
+    j nastepny_znak
+    
+bialy_znak_tablicy:
+    li $t1, 0               # Nie jesteśmy w słowie
+    
+nastepny_znak:
+    addi $t0, $t0, 1
+    j wypelnij_tablice
+    
+koniec_wypelniania:
+    # Ustawienie wartości zwracanych
+    move $v0, $t2           # Liczba słów
+    move $v1, $t8           # Adres tablicy
+    
+    # Przywrócenie adresu powrotu
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    
+    jr $ra                  # Powrót z funkcji
