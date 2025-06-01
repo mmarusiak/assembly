@@ -40,7 +40,7 @@
     
     # Stale liczbowe
     zero_double: .double 0.0
-    jeden_double: .double 1.0
+    dwa_double: .double 2.0
     
     pozegnanie: .asciiz "Dziekuje za korzystanie z kalkulatora!\n"
 
@@ -61,13 +61,9 @@ glowna_petla:
     
 pobierz_operacje:
     # Wczytaj znak operacji
-    li $v0, 8           # syscall dla wczytania stringa
-    la $a0, bufor_znak  # adres bufora
-    li $a1, 2           # maksymalnie 2 znaki (znak + \n)
+    li $v0, 12          # syscall dla wczytania chara
     syscall
-    
-    # Wczytaj pierwszy znak z bufora
-    lb $t0, bufor_znak
+    move $t0, $v0	# zapisz w t0
     
     # Sprawdz jaki znak zostal wpisany
     lb $t1, znak_plus
@@ -147,20 +143,26 @@ pobierz_druga_liczba:
 sprawdz_prawidlowosc_liczby:
     # Sprawdz czy liczba to NaN (NaN != NaN)
     c.eq.d $f0, $f0
-    bc1f liczba_nieprawidlowa  # jesli nie rowne sobie, to NaN
+    bc1f sprawdz_liczba_nieprawidlowa_ret  # jesli nie rowne sobie, to NaN
     
-    # Sprawdz czy liczba to nieskończonosc
-    # Nieskończonosc ma wlasciwosc ze inf + 1 = inf
-    ldc1 $f2, jeden_double
-    add.d $f6, $f0, $f2      # $f4 = liczba + 1
-    c.eq.d $f0, $f6          # porownaj liczba z liczba+1
-    bc1t liczba_nieprawidlowa # jesli rowne, to nieskonczonosc
+    # Sprawdz czy liczba to 0.0. Jesli tak, jest prawidlowa (i nie jest Inf).
+    ldc1 $f2, zero_double       # $f2 = 0.0
+    c.eq.d $f0, $f2             # porownaj liczba z 0.0
+    bc1t sprawdz_liczba_prawidlowa_ret # jesli liczba == 0.0, to jest prawidlowa
+
+    # Liczba != 0.0. Sprawdz czy to nieskonczonosc (liczba * 2.0 == liczba)
+    ldc1 $f8, dwa_double        # $f8 = 2.0
+    mul.d $f6, $f0, $f8         # $f6 = liczba * 2.0
     
-    # Liczba prawidlowa
+    c.eq.d $f0, $f6             # porownaj liczba z (liczba * 2.0)
+    bc1t sprawdz_liczba_nieprawidlowa_ret # jesli rowne (i nie zero), to nieskonczonosc
+    
+# Liczba prawidlowa (nie NaN, nie Inf; 0.0 juz obsluzone)
+sprawdz_liczba_prawidlowa_ret:
     li $v0, 1
     jr $ra
     
-liczba_nieprawidlowa:
+sprawdz_liczba_nieprawidlowa_ret:
     li $v0, 0
     jr $ra
 
