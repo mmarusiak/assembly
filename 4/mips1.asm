@@ -19,7 +19,7 @@
     blad_kontynuacja: .asciiz "\nBlad: Wpisz T/t dla tak lub N/n dla nie.\n"
     blad_dzielenie_zero: .asciiz "Blad: Dzielenie przez zero!\n"
     blad_przepelnienie: .asciiz "\nBlad: Przepelnienie arytmetyczne!\n"
-    blad_dane: .asciiz "\nBlad: Nieprawidlowe dane wejsciowe! Liczba jest za duza lub nieprawidlowa.\n"
+    blad_dane: .asciiz "\nBlad: Nieprawidlowe dane wejsciowe!\n"
     blad_nieskonczonosc: .asciiz "\nBlad: Wprowadzona liczba przekracza zakres zmiennych podwojnej precyzji!\n"
     
     # Komunikaty operacji
