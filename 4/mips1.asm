@@ -1,6 +1,3 @@
-# Kalkulator dla liczb zmiennoprzecinkowych podwojnej precyzji
-# Program obsluguje podstawowe operacje arytmetyczne z obsluga wyjatkow i walidacja danych
-
 .data
     # Komunikaty menu
     powitanie: .asciiz "\n=== KALKULATOR LICZB ZMIENNOPRZECINKOWYCH ===\n"
