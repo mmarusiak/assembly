@@ -6,8 +6,7 @@
     promptFirstNumber: .asciiz "\nPodaj pierwsza liczbe: "
     promptSecondNumber: .asciiz "\nPodaj druga liczbe: "
     
-    # Wyniki
-    resultText: .asciiz "\nWynik: "
+    # Czy kontynuowac
     continuePrompt: .asciiz "\nCzy chcesz kontynuowac? (T/t=tak, N/n=nie): "
     
     # Komunikaty błędów
@@ -196,10 +195,6 @@ checkOperationResult:
     j displayResult
 
 displayResult:
-    # Wyświetl tekst wyniku
-    li $v0, 4
-    la $a0, resultText
-    syscall
     
     # Wyświetl liczbę zmiennoprzecinkową podwójnej precyzji
     li $v0, 3
