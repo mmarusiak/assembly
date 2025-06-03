@@ -1,0 +1,202 @@
+.data
+    input_buffer: .space 256        # Bufor na wejściowy string
+    prompt: .asciiz "Podaj równanie: "
+    wynik_msg: .asciiz "Wynik: "
+    dzielenie_przez_zero_msg: .asciiz "Wykryto dzielenie przez zero!"
+    zla_notacja_msg: .asciiz "Nietsety wpisales niepoprawne rownanie."
+    newline: .asciiz "\n"
+    ten: .double 10.0               # Stała 10.0 dla konwersji
+    zero: .double 0.0               # Stała 0.0
+    dwa: .double 2.0
+
+.text
+.globl main
+
+main:
+    # Wyświetl prompt
+    li $v0, 4
+    la $a0, prompt
+    syscall
+    
+    # Wczytaj string
+    li $v0, 8
+    la $a0, input_buffer
+    li $a1, 256
+    syscall
+    
+    # Inicjalizuj rejestry
+    la $t0, input_buffer            # Wskaźnik na string
+    l.d $f0, zero                   # f0 = 0.0 (wynik)
+    l.d $f4, ten                    # f4 = 10.0 (dla konwersji)
+    
+    # Wczytaj pierwszą liczbę do f0
+    jal parsuj_liczbe
+    mov.d $f0, $f2                  # f0 = pierwsza liczba
+    
+parse_loop:
+    # Pomiń spacje
+    jal pomin_spacje
+    
+    # Sprawdź czy koniec stringa
+    lb $t1, 0($t0)
+    beq $t1, 0, wypisz_wynik        # Null terminator
+    beq $t1, 10, wypisz_wynik       # Newline
+    
+    # Wczytaj operator
+    lb $t2, 0($t0)                  # $t2 = operator
+    addi $t0, $t0, 1                # Przesuń wskaźnik
+    
+    # Pomiń spacje po operatorze
+    jal pomin_spacje
+    
+    # Wczytaj drugą liczbę do f1
+    jal parsuj_liczbe
+    beq $a0, 0, zla_notacja
+    mov.d $f6, $f2                  # f6 = druga liczba
+    
+    # Wykonaj operację w zależności od operatora
+    beq $t2, 43, do_add             # '+'
+    beq $t2, 45, do_sub             # '-'
+    beq $t2, 42, do_mul             # '*'
+    beq $t2, 47, do_div             # '/'
+    j parse_loop                    # Nieznany operator, ignoruj
+    
+do_add:
+    add.d $f0, $f0, $f6
+    j parse_loop
+    
+do_sub:
+    sub.d $f0, $f0, $f6
+    j parse_loop
+    
+do_mul:
+    mul.d $f0, $f0, $f6
+    j parse_loop
+    
+do_div:
+    div.d $f0, $f0, $f6
+    j parse_loop
+
+wypisz_wynik:
+    # Wyświetl komunikat wyniku
+    li $v0, 4
+    la $a0, wynik_msg
+    syscall
+    
+    ldc1 $f2, zero
+    c.eq.d $f0, $f2             # porownaj liczba z 0.0
+    bc1t prawidlowy_wynik 	# jesli liczba == 0.0, to jest prawidlowa
+    
+    ldc1 $f2, dwa		# sprawdzenie czy liczba jest rowna 2 * liczba - nie jest zeren, wiec jesli jest to nieskonczonosc
+    mul.d $f6, $f0, $f2		# oznacza to dzielenie przez zero
+    c.eq.d $f0, $f6
+    bc1t dzielenie_przez_zero
+   
+prawidlowy_wynik:
+    # Wyświetl wynik (f0)
+    li $v0, 3
+    mov.d $f12, $f0
+    syscall
+    
+    # Wyświetl nową linię
+    li $v0, 4
+    la $a0, newline
+    syscall
+    
+    # Zakończ program
+    li $v0, 10
+    syscall
+    
+dzielenie_przez_zero:
+    li $v0, 4
+    la $a0, dzielenie_przez_zero_msg
+    syscall
+    
+    li $v0, 10
+    syscall	
+    
+zla_notacja:
+   li $v0, 4
+   la $a0, zla_notacja_msg
+   syscall
+   
+   li $v0, 10
+   syscall
+    
+
+# Funkcja parsowania liczby z stringa
+# Wejście: $t0 - wskaźnik na string
+# Wyjście: $f2 - sparsowana liczba, $t0 - zaktualizowany wskaźnik
+parsuj_liczbe:
+    l.d $f2, zero                   # f2 = 0.0 (wynik)
+    l.d $f8, zero                   # f8 = 0.0 (część dziesiętna)
+    li $t3, 0                       # Flaga części dziesiętnej
+    li $t4, 1                       # Znak liczby (1 = dodatnia)
+    li $a0, 0			    # Flaga czy byla liczba
+    
+    # Sprawdź znak
+    lb $t1, 0($t0)
+    bne $t1, 45, parsuj_cyfre       # Nie jest '-'
+    li $t4, -1                      # Ustaw znak ujemny
+    addi $t0, $t0, 1                # Przesuń wskaźnik
+    
+parsuj_cyfre:
+    lb $t1, 0($t0)                  # Wczytaj znak
+    
+    # Sprawdź czy to kropka/przecinek - czesc dziesiętna
+    beq $t1, 46, czesc_ulamkowa      # '.'
+    beq $t1, 44, czesc_ulamkowa
+    
+    # Sprawdź czy to cyfra
+    blt $t1, 48, parsuj_liczbe_koniec          # < '0'
+    bgt $t1, 57, parsuj_liczbe_koniec          # > '9'
+    
+    # Flaga liczby na 1
+    li $a0, 1
+    
+    # Konwertuj cyfrę
+    subi $t1, $t1, 48               # ASCII do liczby
+    mtc1 $t1, $f10                  # Przenieś do rejestru FP
+    cvt.d.w $f10, $f10              # Konwertuj int na double
+    
+    beq $t3, 0, czesc_calkowita        # Część całkowita
+    
+    # Część dziesiętna
+    div.d $f10, $f10, $f4           # Podziel przez 10
+    add.d $f8, $f8, $f10            # Dodaj do części dziesiętnej
+    mul.d $f4, $f4, $f4             # f4 *= 10 (dla następnej cyfry)
+    j kolejna_cyfra
+    
+czesc_calkowita:
+    mul.d $f2, $f2, $f4             # f2 *= 10
+    add.d $f2, $f2, $f10            # f2 += cyfra
+    
+kolejna_cyfra:
+    addi $t0, $t0, 1                # Następny znak
+    j parsuj_cyfre
+    
+czesc_ulamkowa:
+    li $t3, 1                       # Ustaw flagę części dziesiętnej
+    l.d $f4, ten                    # Reset dzielnika na 10
+    addi $t0, $t0, 1                # Przesuń za kropkę
+    j parsuj_cyfre
+    
+parsuj_liczbe_koniec:
+    add.d $f2, $f2, $f8             # Połącz części całkowitą i dziesiętną
+    
+    # Zastosuj znak
+    beq $t4, 1, liczba_dodatnia
+    neg.d $f2, $f2                  # Jeśli ujemna, zmień znak
+    
+liczba_dodatnia:
+    l.d $f4, ten                    # Przywróć f4 = 10.0
+    jr $ra
+
+# Funkcja pomijania spacji
+pomin_spacje:
+    lb $t1, 0($t0)
+    bne $t1, 32, pomin_spacje_koniec    # Nie jest spacją
+    addi $t0, $t0, 1                # Przesuń wskaźnik
+    j pomin_spacje
+pomin_spacje_koniec:
+    jr $ra
