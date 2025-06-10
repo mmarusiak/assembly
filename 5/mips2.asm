@@ -1,699 +1,714 @@
-.macro drukuj (%etykieta)
-li $v0, 4
-la $a0, %etykieta
-syscall
-.end_macro
-
-.macro drukujAdres (%adres)
-li $v0, 4
-move $a0, %adres
-syscall
-.end_macro
-
-.macro drukujLiczbe (%rejestr)
-li $v0, 1
-move $a0, %rejestr
-syscall
-.end_macro
-
-.macro drukujZnakAdr (%rejestr)
-li $v0, 11
-lb $a0, (%rejestr)
-syscall
-.end_macro
-
-.macro drukujZnakEtykieta (%rejestr)
-li $v0, 11
-lb $a0, %rejestr
-syscall
-.end_macro
-
-.macro rozpocznijFunkcje
-sw $fp, -4($sp)
-sw $ra, -8($sp)
-addi $sp, $sp, -8
-move $fp, $sp
-.end_macro
-
-.macro powrot
-la $sp, 8($fp)
-lw $ra, ($fp)
-lw $fp, 4($fp)
-jr $ra
-.end_macro
-
-.macro czytajCyfre
-li $v0, 12
-syscall
-addi $v0, $v0, -48
-.end_macro
-
-.macro wyjscie
-li $v0, 10
-syscall
-.end_macro
+# Gra w kółko i krzyżyk - implementacja w MIPS Assembly
+# Autor: Implementacja laboratoryjna
+# Plansza reprezentowana jako tablica znaków 3x3
 
 .data
-	komunikatLiczbaRund: .asciiz "\nWybierz liczbe rund (1-5): \n"
-	komunikatBladRund: .asciiz "\nNieprawidlowy wybor\n"
-
-	komunikatWyborZnaku: .asciiz "\nWybierz swoj znak (kolko - 0, krzyzyk 1): "
-	komunikatBladZnaku: .asciiz "\nNieprawidlowy wybor\n"
-	
-	komunikatWygraneKomputera: .asciiz "\nLiczba wygranych komputera: "
-	komunikatWygraneGracza: .asciiz "\nLiczba wygranych gracza: "
-	
-	komunikatWyborPola: .asciiz "\nPodaj pole (1-9): "
-	komunikatBladPola: .asciiz "\nNieprawidlowe pole\n"
-	
-	komunikatWygralKomputer: .asciiz "\nKomputer wygral\n"
-	komunikatWygralGracz: .asciiz "\nGracz wygral\n"
-	komunikatRemis: .asciiz "\nRemis\n"
-	
-	nowaLinia: .byte 10
-
-	gracz: .byte 88          # X
-	komputer: .byte 79       # O
-	pustePole: .byte 46      # .
-
-	# Definicje linii wygrywajacych (poziome, pionowe, przekatne)
-	linie: .byte -1 -2 -3, -4 -5 -6, -7 -8 -9, -1 -4 -7, -2 -5 -8, -3 -6 -9, -1 -5 -9, -7 -5 -3
+    # Tablica planszy - 9 pól (indeksy 0-8)
+    plansza: .space 36          # 9 słów (każde pole 4 bajty)
+    
+    # Znaki graczy
+    znak_gracza: .word 0        # 'O' = 79, 'X' = 88
+    znak_komputera: .word 0     # przeciwny do gracza
+    
+    # Liczniki wyników
+    wygrane_gracza: .word 0
+    wygrane_komputera: .word 0
+    remisy: .word 0
+    
+    # Zmienne pomocnicze
+    liczba_rund: .word 0
+    aktualna_runda: .word 0
+    
+    # Komunikaty
+    komunikat_start: .asciiz "\n=== GRA W KÓŁKO I KRZYŻYK ===\n"
+    wybor_znaku: .asciiz "Wybierz swój znak (79 dla O, 88 dla X): "
+    wybor_rund: .asciiz "Ile rund chcesz grać (1-5)? "
+    komunikat_runda: .asciiz "\n--- RUNDA "
+    komunikat_runda2: .asciiz " ---\n"
+    wybor_pola: .asciiz "Wybierz pole (1-9): "
+    komunikat_plansza: .asciiz "\nAktualna plansza:\n"
+    komunikat_wygrana_gracz: .asciiz "Gratulacje! Wygrałeś rundę!\n"
+    komunikat_wygrana_komputer: .asciiz "Komputer wygrał rundę!\n"
+    komunikat_remis: .asciiz "Remis!\n"
+    komunikat_wyniki: .asciiz "\n=== KOŃCOWE WYNIKI ===\n"
+    komunikat_gracz_wygral: .asciiz "Gracz: "
+    komunikat_komputer_wygral: .asciiz "Komputer: "
+    komunikat_remisy_tekst: .asciiz "Remisy: "
+    komunikat_ruch_komputera: .asciiz "Komputer wykonał ruch.\n"
+    komunikat_pole_zajete: .asciiz "Pole zajęte! Spróbuj ponownie.\n"
+    komunikat_nieprawidlowy_znak: .asciiz "Nieprawidłowy znak! Wybierz 79 (O) lub 88 (X).\n"
+    komunikat_nieprawidlowa_liczba_rund: .asciiz "Nieprawidłowa liczba rund! Wybierz 1-5.\n"
+    komunikat_nieprawidlowe_pole: .asciiz "Nieprawidłowe pole! Wybierz 1-9.\n"
+    nowa_linia: .asciiz "\n"
+    spacja: .asciiz " "
+    separator_planszy: .asciiz " | "
+    linia_planszy: .asciiz "---------\n"
 
 .text
-	# s0 - liczba pozostalych rund
-	# s1 - wygrane gracza
-	# s2 - wygrane komputera
-	# s3 - adres planszy
-	main:
-		move $fp, $sp
-		move $s3, $fp
-		move $a0, $fp
-		jal przygotujPlansze
-		addi $sp, $sp, -12
-		
-		jal pobierzLiczbeRund
-		
-		
-		petlaRund:
-			beqz $s0, koniecGry
-			jal pobierzZnakGracza
-			
-			jal wykonajRunde
-			addi $s0, $s0, -1
-			j petlaRund
-			
-		koniecGry:
-			jal drukujWynik
-			wyjscie
-		
-	pobierzLiczbeRund:
-		drukuj (komunikatLiczbaRund)
-		czytajCyfre
-		blez $v0, bladLiczbyRund
-		bgt $v0, 5, bladLiczbyRund
-		
-		move $s0, $v0
-		jr $ra
-		
-		bladLiczbyRund:
-			drukuj (komunikatBladRund)
-			j pobierzLiczbeRund
-	
-	pobierzZnakGracza:
-		drukuj (komunikatWyborZnaku)
-		czytajCyfre
-		beqz $v0, graczKolko
-		beq $v0, 1, graczKrzyzyk
-		drukuj (komunikatBladZnaku)
-		j pobierzZnakGracza
-		
-		graczKolko:
-			li $v0, 79      # O
-			sb $v0, gracz
-			li $v0, 88      # X
-			sb $v0, komputer
-			jr $ra
-			
-		graczKrzyzyk:
-			li $v0, 79      # O
-			sb $v0, komputer
-			li $v0, 88      # X
-			sb $v0, gracz
-			jr $ra
-	
-	drukujWynik:
-		drukuj (komunikatWygraneGracza)
-		drukujLiczbe ($s1)
-		drukuj (komunikatWygraneKomputera)
-		drukujLiczbe ($s2)
-		jr $ra
-		
-	# Sekcja wykonywania rundy
-	wykonajRunde:
-		rozpocznijFunkcje
-		
-		move $a0, $s3
-		jal przygotujPlansze
-		
-		ruchGracza:
-			drukujZnakEtykieta (nowaLinia)
-			move $a0, $s3
-			jal rysujPlansze
-		
-			move $a0, $s3
-			jal zapytajORuchGracza
-			
-			add $t0, $s3, $v0
-			lb $t1, gracz
-			sb $t1, ($t0)
-			
-			move $a0, $s3
-			jal sprawdzStanGry
-			beqz $v0, ruchKomputera
-			j koniecRundy
-			
-		ruchKomputera:
-			move $a0, $s3
-			jal znajdzNajlepszyRuchKomputera
-			add $t0, $s3, $v0
-			lb $t1, komputer
-			sb $t1, ($t0)
-			
-			move $a0, $s3
-			jal sprawdzStanGry
-			beqz $v0, ruchGracza
-			j koniecRundy
-		
-		koniecRundy:
-			seq $t0, $v0, 1     # gracz wygral
-			seq $t1, $v0, 2     # komputer wygral
-			add $s1, $s1, $t0
-			add $s2, $s2, $t1
-			
-			bne $t0, 1, pominWygranaGracza
-			drukuj (komunikatWygralGracz)
-			
-			pominWygranaGracza:
-			bne $t1, 1, pominWygranaKomputera
-			drukuj (komunikatWygralKomputer)
-			
-			pominWygranaKomputera:
-			or $t0, $t0, $t1
-			bne $t0, 0, pominRemis
-			drukuj (komunikatRemis)
-			
-			pominRemis:
-			powrot
-		
-	zapytajORuchGracza:
-		# a0 - adres pierwszego pola
-		# v0 - wybrane pole [-1, -9]
-		move $t0, $a0
-		
-		zapytajORuch:
-			drukujZnakEtykieta (nowaLinia)
-			drukuj (komunikatWyborPola)
-			czytajCyfre
-			blez $v0, bladRuchu
-			bgt $v0, 9, bladRuchu
-			
-			neg $v0, $v0
-			add $t1, $t0, $v0
-			lb $t2, pustePole
-			lb $t1, ($t1)
-			bne $t2, $t1, bladRuchu
-			
-			move $t0, $v0
-			drukujZnakEtykieta (nowaLinia)
-			move $v0, $t0
-			jr $ra
-			
-		bladRuchu:
-			drukuj (komunikatBladPola)
-			j zapytajORuch
-	
-	przygotujPlansze:
-		# a0 - adres pierwszego pola
-		lb $t0, pustePole
-		
-		sb $t0, -1($a0)
-		sb $t0, -2($a0)
-		sb $t0, -3($a0)
-		sb $t0, -4($a0)
-		sb $t0, -5($a0)
-		sb $t0, -6($a0)
-		sb $t0, -7($a0)
-		sb $t0, -8($a0)
-		sb $t0, -9($a0)
-		jr $ra
-	
-	rysujPlansze:
-		# a0 - adres pierwszego pola
-		sw $t0, -4($sp)
-		sw $t1, -8($sp)
-		sw $a0, -12($sp)
-		move $t0, $a0
-		
-		# rzad 1 - pola 1, 2, 3
-		addi $t0, $t0, -1
-		lb $t1, ($t0)
-		lb $t2, pustePole
-		beq $t1, $t2, drukujCyfre1
-		drukujZnakAdr ($t0)
-		j po1
-		drukujCyfre1:
-			li $a0, 49  # znak '1'
-			li $v0, 11
-			syscall
-		po1:
-		
-		addi $t0, $t0, -1
-		lb $t1, ($t0)
-		lb $t2, pustePole
-		beq $t1, $t2, drukujCyfre2
-		drukujZnakAdr ($t0)
-		j po2
-		drukujCyfre2:
-			li $a0, 50  # znak '2'
-			li $v0, 11
-			syscall
-		po2:
-		
-		addi $t0, $t0, -1
-		lb $t1, ($t0)
-		lb $t2, pustePole
-		beq $t1, $t2, drukujCyfre3
-		drukujZnakAdr ($t0)
-		j po3
-		drukujCyfre3:
-			li $a0, 51  # znak '3'
-			li $v0, 11
-			syscall
-		po3:
-		drukujZnakEtykieta (nowaLinia)
-		
-		# rzad 2 - pola 4, 5, 6
-		addi $t0, $t0, -1
-		lb $t1, ($t0)
-		lb $t2, pustePole
-		beq $t1, $t2, drukujCyfre4
-		drukujZnakAdr ($t0)
-		j po4
-		drukujCyfre4:
-			li $a0, 52  # znak '4'
-			li $v0, 11
-			syscall
-		po4:
-		
-		addi $t0, $t0, -1
-		lb $t1, ($t0)
-		lb $t2, pustePole
-		beq $t1, $t2, drukujCyfre5
-		drukujZnakAdr ($t0)
-		j po5
-		drukujCyfre5:
-			li $a0, 53  # znak '5'
-			li $v0, 11
-			syscall
-		po5:
-		
-		addi $t0, $t0, -1
-		lb $t1, ($t0)
-		lb $t2, pustePole
-		beq $t1, $t2, drukujCyfre6
-		drukujZnakAdr ($t0)
-		j po6
-		drukujCyfre6:
-			li $a0, 54  # znak '6'
-			li $v0, 11
-			syscall
-		po6:
-		drukujZnakEtykieta (nowaLinia)
-		
-		# rzad 3 - pola 7, 8, 9
-		addi $t0, $t0, -1
-		lb $t1, ($t0)
-		lb $t2, pustePole
-		beq $t1, $t2, drukujCyfre7
-		drukujZnakAdr ($t0)
-		j po7
-		drukujCyfre7:
-			li $a0, 55  # znak '7'
-			li $v0, 11
-			syscall
-		po7:
-		
-		addi $t0, $t0, -1
-		lb $t1, ($t0)
-		lb $t2, pustePole
-		beq $t1, $t2, drukujCyfre8
-		drukujZnakAdr ($t0)
-		j po8
-		drukujCyfre8:
-			li $a0, 56  # znak '8'
-			li $v0, 11
-			syscall
-		po8:
-		
-		addi $t0, $t0, -1
-		lb $t1, ($t0)
-		lb $t2, pustePole
-		beq $t1, $t2, drukujCyfre9
-		drukujZnakAdr ($t0)
-		j po9
-		drukujCyfre9:
-			li $a0, 57  # znak '9'
-			li $v0, 11
-			syscall
-		po9:
-		drukujZnakEtykieta (nowaLinia)
-		drukujZnakEtykieta (nowaLinia)
-		
-		lw $t0, -4($sp)
-		lw $t1, -8($sp)
-		lw $a0, -12($sp)
-		jr $ra
-	
-	sprawdzStanGry:
-		# a0 - adres pierwszego pola
-		# v0 - stan (0 - gra trwa, 1-gracz wygral, 2-komputer wygral, 3-remis)
-		rozpocznijFunkcje
-		
-		# pierwszy rzad poziomy
-		lb $t0, -1($a0)
-		lb $t1, -2($a0)
-		lb $t2, -3($a0)
-		jal sprawdzWygrana
-		bnez $v0, zwrocStanWygrana
-		
-		# drugi rzad poziomy
-		lb $t0, -4($a0)
-		lb $t1, -5($a0)
-		lb $t2, -6($a0)
-		jal sprawdzWygrana
-		bnez $v0, zwrocStanWygrana
-		
-		# trzeci rzad poziomy
-		lb $t0, -7($a0)
-		lb $t1, -8($a0)
-		lb $t2, -9($a0)
-		jal sprawdzWygrana
-		bnez $v0, zwrocStanWygrana
-		
-		# pierwsza kolumna
-		lb $t0, -1($a0)
-		lb $t1, -4($a0)
-		lb $t2, -7($a0)
-		jal sprawdzWygrana
-		bnez $v0, zwrocStanWygrana
-		
-		# druga kolumna
-		lb $t0, -2($a0)
-		lb $t1, -5($a0)
-		lb $t2, -8($a0)
-		jal sprawdzWygrana
-		bnez $v0, zwrocStanWygrana
-		
-		# trzecia kolumna
-		lb $t0, -3($a0)
-		lb $t1, -6($a0)
-		lb $t2, -9($a0)
-		jal sprawdzWygrana
-		bnez $v0, zwrocStanWygrana
-		
-		# przekatna rosnaca
-		lb $t0, -7($a0)
-		lb $t1, -5($a0)
-		lb $t2, -3($a0)
-		jal sprawdzWygrana
-		bnez $v0, zwrocStanWygrana
-		
-		# przekatna opadajaca
-		lb $t0, -1($a0)
-		lb $t1, -5($a0)
-		lb $t2, -9($a0)
-		jal sprawdzWygrana
-		bnez $v0, zwrocStanWygrana
-		
-		j sprawdzRemis
-		
-		sprawdzWygrana:
-			# sprawdza rejestry t0, t1, t2
-			seq $t0, $t0, $t1
-			seq $t1, $t1, $t2
-			and $t0, $t0, $t1
-			beqz $t0, brakWygranej
-			lb $t1, gracz
-			beq $t1, $t2, wygranaGracza
-			lb $t1, komputer
-			beq $t1, $t2, wygranaKomputera
-			
-			brakWygranej:
-				li $v0, 0
-				jr $ra
-			
-			wygranaGracza:
-				li $v0, 1
-				jr $ra
-				
-			wygranaKomputera:
-				li $v0, 2
-				jr $ra
-				
-		zwrocStanWygrana:
-			powrot
-			
-		sprawdzRemis:
-			li $t0, 0
-			sprawdzKolejnePoleRemis:
-				addi $t0, $t0, -1
-				beq $t0, -10, zwrocRemis
-				li $t1, 0
-				add $t1, $a0, $t0
-				lb $t2, ($t1)
-				lb $t1, pustePole
-				beq $t2, $t1, zwrocGraTrawa
-				j sprawdzKolejnePoleRemis
-				
-			zwrocRemis:
-				li $v0, 3
-				powrot
-				
-			zwrocGraTrawa:
-				li $v0, 0
-				powrot
+.globl main
 
-	znajdzNajlepszyRuchKomputera:
-		# a0 - adres planszy
-		# v0 - wybrany ruch [-1, -9]
-		rozpocznijFunkcje
-		move $t0, $a0        # wskaznik na poczatek planszy
-		li $t1, 0            # aktualna linia (zawsze podzielna przez 3)
-		lb $t7, komputer
-		
-		# Sprawdz czy komputer moze wygrac
-		petlaSprawdzWygrana:
-			beq $t1, 24, koniecSprawdzWygrana
-			
-			lb $t2, linie($t1)      # t2 - numer pola
-			add $t2, $t2, $t0       # t2 - adres pola
-			lb $t2, ($t2)           # t2 - znak w polu
-			
-			lb $t3, linie + 1($t1)  # t3 - numer pola
-			add $t3, $t3, $t0       # t3 - adres pola
-			lb $t3, ($t3)           # t3 - znak w polu
-			
-			lb $t4, linie + 2($t1)  # t4 - numer pola
-			add $t4, $t4, $t0       # t4 - adres pola
-			lb $t4, ($t4)           # t4 - znak w polu
-			
-			# Sprawdz wzor: komputer-komputer-puste
-			seq $t5, $t2, $t7       # t5 - pole 1 to komputer
-			seq $t6, $t3, $t7       # t6 - pole 2 to komputer
-			and $t5, $t5, $t6       # t5 - pole 1 i 2 to komputer
-			seq $t6, $t4, 46        # t6 - pole 3 puste (46 = '.')
-			and $t5, $t5, $t6       # t5 - wzor komputer-komputer-puste
-			lb $v0, linie + 2($t1)  # zaladuj adres 3 pola
-			bnez $t5, zwrocRuch     # zwroc jesli wzor pasuje
-			
-			# Sprawdz wzor: komputer-puste-komputer
-			seq $t5, $t2, $t7       # t5 - pole 1 to komputer
-			seq $t6, $t4, $t7       # t6 - pole 3 to komputer
-			and $t5, $t5, $t6       # t5 - pole 1 i 3 to komputer
-			seq $t6, $t3, 46        # t6 - pole 2 puste
-			and $t5, $t5, $t6       # t5 - wzor komputer-puste-komputer
-			lb $v0, linie + 1($t1)  # zaladuj adres 2 pola
-			bnez $t5, zwrocRuch     # zwroc jesli wzor pasuje
-			
-			# Sprawdz wzor: puste-komputer-komputer
-			seq $t5, $t4, $t7       # t5 - pole 3 to komputer
-			seq $t6, $t3, $t7       # t6 - pole 2 to komputer
-			and $t5, $t5, $t6       # t5 - pole 3 i 2 to komputer
-			seq $t6, $t2, 46        # t6 - pole 1 puste
-			and $t5, $t5, $t6       # t5 - wzor puste-komputer-komputer
-			lb $v0, linie($t1)      # zaladuj adres 1 pola
-			bnez $t5, zwrocRuch     # zwroc jesli wzor pasuje
-			
-			addi $t1, $t1, 3
-			j petlaSprawdzWygrana
+main:
+    # Wyświetl komunikat startowy
+    li $v0, 4
+    la $a0, komunikat_start
+    syscall
+    
+    # Inicjalizuj grę
+    jal inicjalizuj_gre
+    
+    # Pętla główna gry
+    petla_gry:
+        # Sprawdź czy jeszcze są rundy do rozegrania
+        lw $t0, aktualna_runda
+        lw $t1, liczba_rund
+        bge $t0, $t1, koniec_gry
+        
+        # Inkrementuj numer rundy
+        addi $t0, $t0, 1
+        sw $t0, aktualna_runda
+        
+        # Wyświetl numer rundy
+        jal wyswietl_numer_rundy
+        
+        # Zresetuj planszę
+        jal zresetuj_plansze
+        
+        # Graj rundę
+        jal graj_runde
+        
+        # Wróć do początku pętli
+        j petla_gry
+    
+    koniec_gry:
+        # Wyświetl końcowe wyniki
+        jal wyswietl_wyniki
+        
+        # Zakończ program
+        li $v0, 10
+        syscall
 
-		koniecSprawdzWygrana:
-			li $t1, 0               # reset licznika linii
-			lb $t7, gracz           # teraz sprawdzamy ruchy gracza do zablokowania
-			
-		# Sprawdz czy trzeba zablokowac gracza
-		petlaSprawdzBlokada:
-			beq $t1, 24, wybierzSrodek
-			
-			lb $t2, linie($t1)      # t2 - numer pola
-			add $t2, $t2, $t0       # t2 - adres pola
-			lb $t2, ($t2)           # t2 - znak w polu
-			
-			lb $t3, linie + 1($t1)  # t3 - numer pola
-			add $t3, $t3, $t0       # t3 - adres pola
-			lb $t3, ($t3)           # t3 - znak w polu
-			
-			lb $t4, linie + 2($t1)  # t4 - numer pola
-			add $t4, $t4, $t0       # t4 - adres pola
-			lb $t4, ($t4)           # t4 - znak w polu
-			
-			# Sprawdz wzor: gracz-gracz-puste
-			seq $t5, $t2, $t7       # t5 - pole 1 to gracz
-			seq $t6, $t3, $t7       # t6 - pole 2 to gracz
-			and $t5, $t5, $t6       # t5 - pole 1 i 2 to gracz
-			seq $t6, $t4, 46        # t6 - pole 3 puste
-			and $t5, $t5, $t6       # t5 - wzor gracz-gracz-puste
-			lb $v0, linie + 2($t1)  # zaladuj adres 3 pola
-			bnez $t5, zwrocRuch     # zwroc jesli wzor pasuje
-			
-			# Sprawdz wzor: gracz-puste-gracz
-			seq $t5, $t2, $t7       # t5 - pole 1 to gracz
-			seq $t6, $t4, $t7       # t6 - pole 3 to gracz
-			and $t5, $t5, $t6       # t5 - pole 1 i 3 to gracz
-			seq $t6, $t3, 46        # t6 - pole 2 puste
-			and $t5, $t5, $t6       # t5 - wzor gracz-puste-gracz
-			lb $v0, linie + 1($t1)  # zaladuj adres 2 pola
-			bnez $t5, zwrocRuch     # zwroc jesli wzor pasuje
-			
-			# Sprawdz wzor: puste-gracz-gracz
-			seq $t5, $t4, $t7       # t5 - pole 3 to gracz
-			seq $t6, $t3, $t7       # t6 - pole 2 to gracz
-			and $t5, $t5, $t6       # t5 - pole 3 i 2 to gracz
-			seq $t6, $t2, 46        # t6 - pole 1 puste
-			and $t5, $t5, $t6       # t5 - wzor puste-gracz-gracz
-			lb $v0, linie($t1)      # zaladuj adres 1 pola
-			bnez $t5, zwrocRuch     # zwroc jesli wzor pasuje
-			
-			addi $t1, $t1, 3
-			j petlaSprawdzBlokada
-			
-		# Jesli brak ruchow wygrywajacych/blokujacych, wybierz strategicznie
-		wybierzSrodek:
-			# Sprobuj zajac srodek (pole -5)
-			add $t1, $t0, -5
-			lb $t2, ($t1)
-			lb $t3, pustePole
-			beq $t2, $t3, zwrocSrodek
-			
-		wybierzNaroznik:
-			# Sprobuj zajac narozniki w kolejnosci
-			add $t1, $t0, -1        # lewy gorny
-			lb $t2, ($t1)
-			lb $t3, pustePole
-			beq $t2, $t3, zwrocLewyGorny
-			
-			add $t1, $t0, -3        # prawy gorny
-			lb $t2, ($t1)
-			lb $t3, pustePole
-			beq $t2, $t3, zwrocPrawyGorny
-			
-			add $t1, $t0, -7        # lewy dolny
-			lb $t2, ($t1)
-			lb $t3, pustePole
-			beq $t2, $t3, zwrocLewyDolny
-			
-			add $t1, $t0, -9        # prawy dolny
-			lb $t2, ($t1)
-			lb $t3, pustePole
-			beq $t2, $t3, zwrocPrawyDolny
-			
-		wybierzBok:
-			# Sprobuj zajac boki
-			add $t1, $t0, -2        # gorny
-			lb $t2, ($t1)
-			lb $t3, pustePole
-			beq $t2, $t3, zwrocGorny
-			
-			add $t1, $t0, -4        # lewy
-			lb $t2, ($t1)
-			lb $t3, pustePole
-			beq $t2, $t3, zwrocLewy
-			
-			add $t1, $t0, -6        # prawy
-			lb $t2, ($t1)
-			lb $t3, pustePole
-			beq $t2, $t3, zwrocPrawy
-			
-			add $t1, $t0, -8        # dolny
-			lb $t2, ($t1)
-			lb $t3, pustePole
-			beq $t2, $t3, zwrocDolny
-			
-		# Jesli wszystko zajete, znajdz pierwsze puste pole
-		znajdzPustePole:
-			li $t1, -1
-			petlaZnajdzPuste:
-				beq $t1, -10, zwrocPierwszePuste
-				add $t2, $t0, $t1
-				lb $t3, ($t2)
-				lb $t4, pustePole
-				beq $t3, $t4, zwrocPuste
-				addi $t1, $t1, -1
-				j petlaZnajdzPuste
-				
-		zwrocSrodek:
-			li $v0, -5
-			powrot
-			
-		zwrocLewyGorny:
-			li $v0, -1
-			powrot
-			
-		zwrocPrawyGorny:
-			li $v0, -3
-			powrot
-			
-		zwrocLewyDolny:
-			li $v0, -7
-			powrot
-			
-		zwrocPrawyDolny:
-			li $v0, -9
-			powrot
-			
-		zwrocGorny:
-			li $v0, -2
-			powrot
-			
-		zwrocLewy:
-			li $v0, -4
-			powrot
-			
-		zwrocPrawy:
-			li $v0, -6
-			powrot
-			
-		zwrocDolny:
-			li $v0, -8
-			powrot
-			
-		zwrocPuste:
-			move $v0, $t1
-			powrot
-			
-		zwrocPierwszePuste:
-			li $v0, -1
-			powrot
-		
-		zwrocRuch:
-			powrot
+# === FUNKCJE INICJALIZACJI ===
+
+inicjalizuj_gre:
+    # Zapisz adres powrotu
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    petla_wybor_znaku:
+        # Wybór znaku gracza
+        li $v0, 4
+        la $a0, wybor_znaku
+        syscall
+        
+        li $v0, 5
+        syscall
+        move $t0, $v0
+        
+        # Sprawdź poprawność znaku
+        li $t1, 79      # 'O'
+        beq $t0, $t1, znak_ok
+        li $t1, 88      # 'X'
+        beq $t0, $t1, znak_ok
+        
+        # Nieprawidłowy znak
+        li $v0, 4
+        la $a0, komunikat_nieprawidlowy_znak
+        syscall
+        j petla_wybor_znaku
+    
+    znak_ok:
+        sw $t0, znak_gracza
+        
+        # Ustaw znak komputera (przeciwny)
+        li $t1, 79      # 'O'
+        beq $t0, $t1, ustaw_x_komputer
+        li $t1, 79      # Komputer = 'O'
+        sw $t1, znak_komputera
+        j dalej_inicjalizacja
+        
+        ustaw_x_komputer:
+            li $t1, 88  # Komputer = 'X'
+            sw $t1, znak_komputera
+    
+    dalej_inicjalizacja:
+    
+    petla_wybor_rund:
+        # Wybór liczby rund
+        li $v0, 4
+        la $a0, wybor_rund
+        syscall
+        
+        li $v0, 5
+        syscall
+        move $t0, $v0
+        
+        # Sprawdź poprawność liczby rund (1-5)
+        blt $t0, 1, nieprawidlowa_liczba_rund
+        bgt $t0, 5, nieprawidlowa_liczba_rund
+        
+        sw $t0, liczba_rund
+        j koniec_inicjalizacji
+        
+        nieprawidlowa_liczba_rund:
+            li $v0, 4
+            la $a0, komunikat_nieprawidlowa_liczba_rund
+            syscall
+            j petla_wybor_rund
+    
+    koniec_inicjalizacji:
+    # Przywróć adres powrotu
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# === FUNKCJE PLANSZY ===
+
+zresetuj_plansze:
+    # Zapisz rejestry
+    addi $sp, $sp, -12
+    sw $ra, 8($sp)
+    sw $s0, 4($sp)
+    sw $s1, 0($sp)
+    
+    # Inicjalizuj licznik pętli
+    li $s0, 0           # i = 0
+    li $s1, 9           # maksymalny indeks
+    la $t2, plansza     # adres bazowy planszy
+    
+    petla_reset:
+        # Sprawdź warunek pętli
+        bge $s0, $s1, koniec_reset
+        
+        # Oblicz adres elementu planszy[i]
+        sll $t0, $s0, 2    # i * 4 (rozmiar słowa)
+        add $t0, $t0, $t2  # adres planszy[i]
+        
+        # Ustaw pole jako puste (32 = spacja)
+        li $t1, 32
+        sw $t1, 0($t0)
+        
+        # i++
+        addi $s0, $s0, 1
+        j petla_reset
+    
+    koniec_reset:
+    # Przywróć rejestry
+    lw $s1, 0($sp)
+    lw $s0, 4($sp)
+    lw $ra, 8($sp)
+    addi $sp, $sp, 12
+    jr $ra
+
+wyswietl_plansze:
+    # Zapisz rejestry
+    addi $sp, $sp, -16
+    sw $ra, 12($sp)
+    sw $s0, 8($sp)
+    sw $s1, 4($sp)
+    sw $s2, 0($sp)
+    
+    # Wyświetl nagłówek
+    li $v0, 4
+    la $a0, komunikat_plansza
+    syscall
+    
+    # Inicjalizuj zmienne pętli
+    li $s0, 0           # i = 0
+    li $s1, 9           # maksymalny indeks
+    la $s2, plansza     # adres bazowy planszy
+    
+    petla_wyswietlania:
+        # Sprawdź warunek pętli
+        bge $s0, $s1, koniec_wyswietlania
+        
+        # Oblicz adres elementu planszy[i]
+        sll $t0, $s0, 2    # i * 4
+        add $t0, $t0, $s2  # adres planszy[i]
+        
+        # Załaduj znak z planszy
+        lw $t1, 0($t0)
+        
+        # Wyświetl znak
+        li $v0, 11
+        move $a0, $t1
+        syscall
+        
+        # Sprawdź pozycję dla formatowania
+        addi $t2, $s0, 1   # i + 1
+        
+        # Sprawdź czy to koniec wiersza
+        li $t3, 3
+        div $t2, $t3
+        mfhi $t4           # reszta z dzielenia
+        
+        beqz $t4, nowa_linia_plansza  # jeśli reszta = 0, nowa linia
+        
+        # Nie koniec wiersza - dodaj separator
+        li $v0, 4
+        la $a0, separator_planszy
+        syscall
+        j dalej_wyswietlanie
+        
+        nowa_linia_plansza:
+            li $v0, 4
+            la $a0, nowa_linia
+            syscall
+            
+            # Dodaj linię podziału (oprócz ostatniego wiersza)
+            li $t5, 6
+            bgt $s0, $t5, bez_linii_podzialu
+            li $v0, 4
+            la $a0, linia_planszy
+            syscall
+            
+        bez_linii_podzialu:
+        
+        dalej_wyswietlanie:
+        # i++
+        addi $s0, $s0, 1
+        j petla_wyswietlania
+    
+    koniec_wyswietlania:
+    # Przywróć rejestry
+    lw $s2, 0($sp)
+    lw $s1, 4($sp)
+    lw $s0, 8($sp)
+    lw $ra, 12($sp)
+    addi $sp, $sp, 16
+    jr $ra
+
+# === FUNKCJE RUCHU ===
+
+wykonaj_ruch_gracza:
+    # Zapisz rejestry
+    addi $sp, $sp, -8
+    sw $ra, 4($sp)
+    sw $s0, 0($sp)
+    
+    petla_ruchu_gracza:
+        # Wyświetl planszę
+        jal wyswietl_plansze
+        
+        # Poproś o wybór pola
+        li $v0, 4
+        la $a0, wybor_pola
+        syscall
+        
+        li $v0, 5
+        syscall
+        move $s0, $v0       # numer pola (1-9)
+        
+        # Sprawdź poprawność numeru pola
+        blt $s0, 1, nieprawidlowe_pole
+        bgt $s0, 9, nieprawidlowe_pole
+        
+        # Konwertuj na indeks tablicy (0-8)
+        addi $s0, $s0, -1
+        
+        # Sprawdź czy pole jest wolne
+        move $a0, $s0
+        jal sprawdz_pole_wolne
+        beqz $v0, pole_zajete
+        
+        # Wykonaj ruch
+        move $a0, $s0
+        lw $a1, znak_gracza
+        jal postaw_znak
+        j koniec_ruchu_gracza
+        
+        nieprawidlowe_pole:
+            li $v0, 4
+            la $a0, komunikat_nieprawidlowe_pole
+            syscall
+            j petla_ruchu_gracza
+        
+        pole_zajete:
+            li $v0, 4
+            la $a0, komunikat_pole_zajete
+            syscall
+            j petla_ruchu_gracza
+    
+    koniec_ruchu_gracza:
+    # Przywróć rejestry
+    lw $s0, 0($sp)
+    lw $ra, 4($sp)
+    addi $sp, $sp, 8
+    jr $ra
+
+wykonaj_ruch_komputera:
+    # Prosta strategia: znajdź pierwsze wolne pole
+    # Zapisz rejestry
+    addi $sp, $sp, -12
+    sw $ra, 8($sp)
+    sw $s0, 4($sp)
+    sw $s1, 0($sp)
+    
+    li $s0, 0           # i = 0
+    li $s1, 9           # maksymalny indeks
+    
+    petla_ruchu_komputera:
+        bge $s0, $s1, koniec_ruchu_komputera
+        
+        move $a0, $s0
+        jal sprawdz_pole_wolne
+        bnez $v0, wykonaj_ruch_komp
+        
+        addi $s0, $s0, 1
+        j petla_ruchu_komputera
+    
+    wykonaj_ruch_komp:
+        move $a0, $s0
+        lw $a1, znak_komputera
+        jal postaw_znak
+        
+        # Wyświetl komunikat o ruchu komputera
+        li $v0, 4
+        la $a0, komunikat_ruch_komputera
+        syscall
+    
+    koniec_ruchu_komputera:
+    # Przywróć rejestry
+    lw $s1, 0($sp)
+    lw $s0, 4($sp)
+    lw $ra, 8($sp)
+    addi $sp, $sp, 12
+    jr $ra
+
+# === FUNKCJE POMOCNICZE ===
+
+sprawdz_pole_wolne:
+    # $a0 = indeks pola (0-8)
+    # zwraca 1 jeśli wolne, 0 jeśli zajęte
+    
+    la $t0, plansza
+    sll $t1, $a0, 2        # indeks * 4
+    add $t1, $t1, $t0      # adres pola
+    lw $t2, 0($t1)         # zawartość pola
+    
+    li $t3, 32             # kod spacji
+    seq $v0, $t2, $t3      # 1 jeśli równe spacji
+    jr $ra
+
+postaw_znak:
+    # $a0 = indeks pola (0-8)
+    # $a1 = znak do postawienia
+    
+    la $t1, plansza
+    sll $t2, $a0, 2        # indeks * 4
+    add $t2, $t2, $t1      # adres pola
+    sw $a1, 0($t2)         # postaw znak
+    jr $ra
+
+sprawdz_wygrana:
+    # Zwraca kod znaku wygrywającego lub 0 jeśli brak wygranej
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    # Sprawdź wiersze
+    jal sprawdz_wiersze
+    bnez $v0, koniec_sprawdzenia
+    
+    # Sprawdź kolumny
+    jal sprawdz_kolumny
+    bnez $v0, koniec_sprawdzenia
+    
+    # Sprawdź przekątne
+    jal sprawdz_przekatne
+    
+    koniec_sprawdzenia:
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+sprawdz_wiersze:
+    # Sprawdź każdy wiersz
+    li $t0, 0               # numer wiersza
+    
+    petla_wierszy:
+        li $t7, 3
+        bge $t0, $t7, koniec_wierszy
+        
+        # Oblicz indeksy pól w wierszu
+        li $t1, 3
+        mul $t1, $t0, $t1   # pierwszy indeks wiersza
+        addi $t2, $t1, 1    # drugi indeks
+        addi $t3, $t1, 2    # trzeci indeks
+        
+        # Pobierz znaki z planszy
+        la $t4, plansza
+        sll $t5, $t1, 2
+        add $t5, $t5, $t4
+        lw $s0, 0($t5)      # pierwszy znak
+        
+        sll $t5, $t2, 2
+        add $t5, $t5, $t4
+        lw $s1, 0($t5)      # drugi znak
+        
+        sll $t5, $t3, 2
+        add $t5, $t5, $t4
+        lw $s2, 0($t5)      # trzeci znak
+        
+        # Sprawdź czy wszystkie są takie same i nie puste
+        bne $s0, $s1, nastepny_wiersz
+        bne $s1, $s2, nastepny_wiersz
+        li $t6, 32          # spacja
+        beq $s0, $t6, nastepny_wiersz
+        
+        # Znaleziono wygraną
+        move $v0, $s0
+        jr $ra
+        
+        nastepny_wiersz:
+        addi $t0, $t0, 1
+        j petla_wierszy
+    
+    koniec_wierszy:
+    li $v0, 0
+    jr $ra
+
+sprawdz_kolumny:
+    # Podobnie jak wiersze, ale indeksy: 0,3,6 | 1,4,7 | 2,5,8
+    li $t0, 0               # numer kolumny
+    
+    petla_kolumn:
+        li $t7, 3
+        bge $t0, $t7, koniec_kolumn
+        
+        # Oblicz indeksy pól w kolumnie
+        move $t1, $t0       # pierwszy indeks
+        addi $t2, $t0, 3    # drugi indeks
+        addi $t3, $t0, 6    # trzeci indeks
+        
+        # Pobierz znaki z planszy
+        la $t4, plansza
+        sll $t5, $t1, 2
+        add $t5, $t5, $t4
+        lw $s0, 0($t5)
+        
+        sll $t5, $t2, 2
+        add $t5, $t5, $t4
+        lw $s1, 0($t5)
+        
+        sll $t5, $t3, 2
+        add $t5, $t5, $t4
+        lw $s2, 0($t5)
+        
+        # Sprawdź czy wszystkie są takie same i nie puste
+        bne $s0, $s1, nastepna_kolumna
+        bne $s1, $s2, nastepna_kolumna
+        li $t6, 32
+        beq $s0, $t6, nastepna_kolumna
+        
+        # Znaleziono wygraną
+        move $v0, $s0
+        jr $ra
+        
+        nastepna_kolumna:
+        addi $t0, $t0, 1
+        j petla_kolumn
+    
+    koniec_kolumn:
+    li $v0, 0
+    jr $ra
+
+sprawdz_przekatne:
+    # Przekątna główna: 0,4,8
+    la $t0, plansza
+    lw $s0, 0($t0)      # pole 0
+    lw $s1, 16($t0)     # pole 4 (4*4=16)
+    lw $s2, 32($t0)     # pole 8 (8*4=32)
+    
+    bne $s0, $s1, sprawdz_druga_przekatna
+    bne $s1, $s2, sprawdz_druga_przekatna
+    li $t1, 32
+    beq $s0, $t1, sprawdz_druga_przekatna
+    
+    move $v0, $s0
+    jr $ra
+    
+    sprawdz_druga_przekatna:
+    # Przekątna poboczna: 2,4,6
+    lw $s0, 8($t0)      # pole 2 (2*4=8)
+    lw $s1, 16($t0)     # pole 4 (4*4=16)
+    lw $s2, 24($t0)     # pole 6 (6*4=24)
+    
+    bne $s0, $s1, brak_wygranej_przekatne
+    bne $s1, $s2, brak_wygranej_przekatne
+    li $t1, 32
+    beq $s0, $t1, brak_wygranej_przekatne
+    
+    move $v0, $s0
+    jr $ra
+    
+    brak_wygranej_przekatne:
+    li $v0, 0
+    jr $ra
+
+sprawdz_remis:
+    # Sprawdź czy wszystkie pola są zajęte
+    li $t0, 0           # licznik zajętych pól
+    li $t1, 0           # indeks
+    la $t2, plansza
+    
+    petla_sprawdz_remis:
+        li $t7, 9
+        bge $t1, $t7, koniec_sprawdz_remis
+        
+        sll $t3, $t1, 2
+        add $t3, $t3, $t2
+        lw $t4, 0($t3)
+        
+        li $t5, 32      # spacja
+        beq $t4, $t5, nie_remis
+        
+        addi $t0, $t0, 1    # zwiększ licznik zajętych pól
+        
+        nie_remis:
+        addi $t1, $t1, 1
+        j petla_sprawdz_remis
+    
+    koniec_sprawdz_remis:
+    # Jeśli wszystkie 9 pól zajęte - remis
+    li $v0, 0
+    li $t6, 9
+    blt $t0, $t6, koniec_funkcji_remis
+    li $v0, 1
+    
+    koniec_funkcji_remis:
+    jr $ra
+
+# === FUNKCJA GŁÓWNEJ RUNDY ===
+
+graj_runde:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    petla_runda:
+        # Ruch gracza
+        jal wykonaj_ruch_gracza
+        
+        # Sprawdź wygraną
+        jal sprawdz_wygrana
+        bnez $v0, sprawdz_kto_wygral
+        
+        # Sprawdź remis
+        jal sprawdz_remis
+        bnez $v0, remis_rundy
+        
+        # Ruch komputera
+        jal wykonaj_ruch_komputera
+        
+        # Sprawdź wygraną
+        jal sprawdz_wygrana
+        bnez $v0, sprawdz_kto_wygral
+        
+        # Sprawdź remis
+        jal sprawdz_remis
+        bnez $v0, remis_rundy
+        
+        j petla_runda
+    
+    sprawdz_kto_wygral:
+        lw $t0, znak_gracza
+        beq $v0, $t0, wygrana_gracza
+        j wygrana_komputera
+    
+    wygrana_gracza:
+        jal wyswietl_plansze
+        li $v0, 4
+        la $a0, komunikat_wygrana_gracz
+        syscall
+        
+        lw $t0, wygrane_gracza
+        addi $t0, $t0, 1
+        sw $t0, wygrane_gracza
+        j koniec_rundy
+    
+    wygrana_komputera:
+        jal wyswietl_plansze
+        li $v0, 4
+        la $a0, komunikat_wygrana_komputer
+        syscall
+        
+        lw $t0, wygrane_komputera
+        addi $t0, $t0, 1
+        sw $t0, wygrane_komputera
+        j koniec_rundy
+    
+    remis_rundy:
+        jal wyswietl_plansze
+        li $v0, 4
+        la $a0, komunikat_remis
+        syscall
+        
+        lw $t0, remisy
+        addi $t0, $t0, 1
+        sw $t0, remisy
+    
+    koniec_rundy:
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# === FUNKCJE WYŚWIETLANIA ===
+
+wyswietl_numer_rundy:
+    li $v0, 4
+    la $a0, komunikat_runda
+    syscall
+    
+    li $v0, 1
+    lw $a0, aktualna_runda
+    syscall
+    
+    li $v0, 4
+    la $a0, komunikat_runda2
+    syscall
+    
+    jr $ra
+
+wyswietl_wyniki:
+    li $v0, 4
+    la $a0, komunikat_wyniki
+    syscall
+    
+    # Wyniki gracza
+    li $v0, 4
+    la $a0, komunikat_gracz_wygral
+    syscall
+    
+    li $v0, 1
+    lw $a0, wygrane_gracza
+    syscall
+    
+    li $v0, 4
+    la $a0, nowa_linia
+    syscall
+    
+    # Wyniki komputera
+    li $v0, 4
+    la $a0, komunikat_komputer_wygral
+    syscall
+    
+    li $v0, 1
+    lw $a0, wygrane_komputera
+    syscall
+    
+    li $v0, 4
+    la $a0, nowa_linia
+    syscall
+    
+    # Remisy
+    li $v0, 4
+    la $a0, komunikat_remisy_tekst
+    syscall
+    
+    li $v0, 1
+    lw $a0, remisy
+    syscall
+    
+    li $v0, 4
+    la $a0, nowa_linia
+    syscall
+    
+    jr $ra
